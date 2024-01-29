@@ -72,7 +72,7 @@ class NECST_CIFAR(nn.Module):
         # generate Gaussian propagating noise
         noise = torch.normal(mean=torch.zeros(enc.size()),
                              std=torch.ones(enc.size()) * n_var).to(device)
-
+        print(n_var)
         # feedforward latents
         if not ukie_flag:
             noise_i = torch.normal(mean=torch.zeros(enc.size()),

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
 
 
 class DJSCCN_CIFAR(nn.Module):
@@ -13,6 +14,8 @@ class DJSCCN_CIFAR(nn.Module):
         self.var_cdim = args.var_cdim  # int(32)  # var_cdim
         self.ib_cdim = self.inv_cdim + self.var_cdim
         self.P = 1
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
+        self.e = 1e-24
 
         self.encoder = nn.Sequential(
             nn.Conv2d(self.in_channel, 32, kernel_size=3, stride=2, padding=1),
@@ -35,7 +38,6 @@ class DJSCCN_CIFAR(nn.Module):
             nn.BatchNorm2d(32),
             nn.Conv2d(in_channels=32, out_channels=self.var_cdim, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.BatchNorm2d(self.var_cdim),
         )
 
         self.decoder = nn.Sequential(
@@ -63,23 +65,17 @@ class DJSCCN_CIFAR(nn.Module):
         enc = self.normalize_layer(enc)
         return enc
 
-    def get_semcom_recon(self, x, n_var, ukie_flag, device):
+    def get_semcom_recon(self, x, n_var, device):
         enc = self.encoder(x)
         enc = self.normalize_layer(enc)
         # generate Gaussian propagating noise
         noise = torch.normal(mean=torch.zeros(enc.size()),
                              std=torch.ones(enc.size()) * n_var).to(device)
 
-        # feedforward latents
-        if not ukie_flag:
-            noise_i = torch.normal(mean=torch.zeros(enc.size()),
-                                   std=torch.ones(enc.size()) * n_var).to(device)
-            inv = enc + noise_i
-        else:
-            inv = enc
         var = enc + noise  # simulate a noise by physical channels
-
+        # print(f"lat: {F.mse_loss(var, enc)}")
         rec = self.decoder(var)
+        # print(f"ori: {F.mse_loss(x, rec)}")
         return rec
 
     def get_latent_size(self, x):
@@ -88,7 +84,7 @@ class DJSCCN_CIFAR(nn.Module):
         return enc.size()
 
     def normalize_layer(self, z):
-        k = torch.prod(torch.tensor(z.size()[1:], dtype=torch.float32))
+        k = torch.tensor(1.0).to(self.device)  # torch.prod(torch.tensor(z.size()[1:], dtype=torch.float32))
         # Square root of k and P
         sqrt1 = torch.sqrt(k * self.P)
 
@@ -98,8 +94,7 @@ class DJSCCN_CIFAR(nn.Module):
         else:
             zT = z.permute(0, 1, 3, 2)
         # Multiply z and zT = sqrt2
-        sqrt2 = torch.sqrt(torch.matmul(zT, z))
-        # divide z and sqrt2 = div
+        sqrt2 = torch.sqrt(zT*z + self.e)
         div = z / sqrt2
         z_out = div * sqrt1
 
