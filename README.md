@@ -1,6 +1,6 @@
-# NECST-Pytorch
+# SemCom-Pytorch
 
-Re-implementation of Neural Joint Source-Channel Coding:
+Re-implementation of those algorithms: 
 
 Neural Joint-Source Channel Coding
 Kristy Choi, Kedar Tatwawadi, Aditya Grover, Tsachy Weissman, Stefano Ermon
