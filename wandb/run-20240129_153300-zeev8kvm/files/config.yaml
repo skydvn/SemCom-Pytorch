@@ -1,0 +1,114 @@
+wandb_version: 1
+
+ds:
+  desc: null
+  value: cifar10
+recl:
+  desc: null
+  value: mse
+clsl:
+  desc: null
+  value: ce
+disl:
+  desc: null
+  value: kl
+lr:
+  desc: null
+  value: 0.01
+cls_coeff:
+  desc: null
+  value: 0.5
+rec_coeff:
+  desc: null
+  value: 1
+inv_coeff:
+  desc: null
+  value: 0.2
+var_coeff:
+  desc: null
+  value: 0.2
+inv_cdim:
+  desc: null
+  value: 32
+var_cdim:
+  desc: null
+  value: 32
+vae:
+  desc: null
+  value: false
+kld_coeff:
+  desc: null
+  value: 0.00025
+bs:
+  desc: null
+  value: 1024
+tsbs:
+  desc: null
+  value: 1024
+wk:
+  desc: null
+  value: 32
+out_e:
+  desc: null
+  value: 500
+overall_e:
+  desc: null
+  value: 1
+irep_e:
+  desc: null
+  value: 1
+dv:
+  desc: null
+  value: 0
+model_log:
+  desc: null
+  value: true
+operator:
+  desc: null
+  value: window
+wandb:
+  desc: null
+  value: true
+log:
+  desc: null
+  value: false
+wandb_prj:
+  desc: null
+  value: IVAE
+wandb_entity:
+  desc: null
+  value: scalemind
+verbose:
+  desc: null
+  value: false
+mode:
+  desc: null
+  value: djsccn
+run_name:
+  desc: null
+  value: cifar10_djsccn_False_1-0.00025-0.2-0.2__1706517178
+_wandb:
+  desc: null
+  value:
+    python_version: 3.11.5
+    cli_version: 0.16.0
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1706517180.189683
+    t:
+      1:
+      - 1
+      - 2
+      - 3
+      - 41
+      - 55
+      3:
+      - 13
+      - 16
+      - 23
+      4: 3.11.5
+      5: 0.16.0
+      8:
+      - 5
+      13: linux-x86_64

@@ -1,23 +1,18 @@
-import os
-import pandas
-import matplotlib.pyplot as plt
-import seaborn
-from tqdm import tqdm
+import torch
+import torch.nn as nn
 import numpy as np
 
-import torch
-from torch import nn
 
-
-class NECST_CIFAR(nn.Module):
+class DJSCCN_CIFAR(nn.Module):
     def __init__(self, args, in_channel, class_num):
-        super(NECST_CIFAR, self).__init__()
+        super(DJSCCN_CIFAR, self).__init__()
 
         self.in_channel = in_channel
         self.class_num = class_num
-        self.inv_cdim = args.inv_cdim    # int(32)  # inv_cdim
-        self.var_cdim = args.var_cdim    # int(32)  # var_cdim
+        self.inv_cdim = args.inv_cdim  # int(32)  # inv_cdim
+        self.var_cdim = args.var_cdim  # int(32)  # var_cdim
         self.ib_cdim = self.inv_cdim + self.var_cdim
+        self.P = 1
 
         self.encoder = nn.Sequential(
             nn.Conv2d(self.in_channel, 32, kernel_size=3, stride=2, padding=1),
@@ -44,7 +39,7 @@ class NECST_CIFAR(nn.Module):
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(self.ib_cdim, 64, kernel_size=3, stride=1, padding=1),
+            nn.ConvTranspose2d(self.var_cdim, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.BatchNorm2d(64),
             nn.ConvTranspose2d(64, 64, kernel_size=3, stride=1, padding=1),
@@ -59,16 +54,18 @@ class NECST_CIFAR(nn.Module):
 
     def forward(self, x):
         enc = self.encoder(x)
+        enc = self.normalize_layer(enc)
         rec = self.decoder(enc)
         return rec
 
     def get_latent(self, x):
         enc = self.encoder(x)
+        enc = self.normalize_layer(enc)
         return enc
 
     def get_semcom_recon(self, x, n_var, ukie_flag, device):
         enc = self.encoder(x)
-
+        enc = self.normalize_layer(enc)
         # generate Gaussian propagating noise
         noise = torch.normal(mean=torch.zeros(enc.size()),
                              std=torch.ones(enc.size()) * n_var).to(device)
@@ -87,4 +84,57 @@ class NECST_CIFAR(nn.Module):
 
     def get_latent_size(self, x):
         enc = self.encoder(x)
+        enc = self.normalize_layer(enc)
         return enc.size()
+
+    def normalize_layer(self, z):
+        k = torch.prod(torch.tensor(z.size()[1:], dtype=torch.float32))
+        # Square root of k and P
+        sqrt1 = torch.sqrt(k * self.P)
+
+        # Conjugate Transpose of z
+        if torch.is_complex(z):
+            zT = torch.conj(z).permute(0, 1, 3, 2)
+        else:
+            zT = z.permute(0, 1, 3, 2)
+        print(z.size())
+        print(zT.size())
+        # Multiply z and zT = sqrt2
+        sqrt2 = torch.sqrt(torch.matmul(zT, z))
+        # divide z and sqrt2 = div
+        div = z / sqrt2
+        z_out = div * sqrt1
+
+        return z_out  # Adjusted return value as per PyTorch operations
+
+
+class DJSCCNLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.rec_loss = nn.MSELoss()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
+
+    def forward(self, args, rec, img):
+        rec_loss = self.rec_loss(rec, img)
+
+        cls_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        inv_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        var_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        irep_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        kld_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+
+        psnr_val = 20 * torch.log10(torch.max(img) / torch.sqrt(rec_loss))
+
+        total_loss = args.rec_coeff * rec_loss
+
+        return {
+            "cls_loss": cls_loss,
+            "rec_loss": rec_loss,
+            "psnr_loss": psnr_val,
+            "kld_loss": kld_loss,
+            "inv_loss": inv_loss,
+            "var_loss": var_loss,
+            "irep_loss": irep_loss,
+            "total_loss": total_loss
+        }

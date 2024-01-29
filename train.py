@@ -4,7 +4,7 @@ from tqdm import tqdm
 import numpy as np
 
 from dataset import *
-from utils.log import Log, Model_Info, interpolate, inference
+from utils.log import Log, Model_Info, interpolate
 from utils.logging import Logging
 from datetime import datetime
 from glob import glob
@@ -20,7 +20,7 @@ from torchvision import transforms
 from models import *
 
 
-def train_necst(args: argparse):
+def train_djsccn(args: argparse):
     # Folder Setup
     runs_dir = os.getcwd() + "/runs"
     if not os.path.exists(runs_dir):
@@ -71,9 +71,7 @@ def train_necst(args: argparse):
     print(len(train_dl), len(test_dl))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
-    # device = torch.device("cpu", index=0)
 
-    # model = CNN_EMnist_VAE().to(device=device)
     if args.ds == "emnist":
         in_channel = 1
         class_num = 10
@@ -84,17 +82,11 @@ def train_necst(args: argparse):
         in_channel = 3
         class_num = 10
 
-    # model = CNN_EMnist_NoVAE(in_channel, class_num).to(device=device)
-    print(args.vae)
-    # model = model_mapping[args.ds](in_channel, class_num).to(device=device)
-    model = model_mapping[args.ds](args, in_channel, class_num).to(device=device)
+    model = DJSCCN_CIFAR(args, in_channel, class_num).to(device=device)
     print(model)
     ukie_optimizer = Adam(model.parameters(), lr=args.lr)
-    inv_optimizer = Adam([
-        {'params': model.inv.parameters()},
-        {'params': model.classifier.parameters()}], lr=args.lr)
 
-    criterion = nn.MSELoss()
+    criterion = DJSCCNLoss()
 
     # Training
     old_loss_value = 1e26
@@ -103,12 +95,12 @@ def train_necst(args: argparse):
     temp_loss = 0
     psnr_train = 0
     model.train()
-    for _ in range(args.overall_e):
+    for _ in range(args.out_e):
         for x, y in tqdm(train_dl):
             x, y = x.to(device), y.to(device)
-            logits, rec, inv, var, mu, logvar = model(x)
+            rec = model(x)
 
-            ov_loss_dict = criterion(args, logits, rec, inv, var, x, y, mu, logvar)
+            ov_loss_dict = criterion(args, x, rec)
 
             ukie_optimizer.zero_grad()
             ov_loss_dict["total_loss"].backward()
@@ -120,11 +112,7 @@ def train_necst(args: argparse):
             log_interface(key=f"train/loss/inv", value=ov_loss_dict["inv_loss"].item())
             log_interface(key=f"train/loss/var", value=ov_loss_dict["var_loss"].item())
 
-            logits, rec, inv, var, mu, logvar = model(x)
-            ov_loss_dict["accuracy"] = logits.max(1)[1].eq(y).sum() / y.size(0)
-            temp_loss += ov_loss_dict["accuracy"]
-            tr_total_loss += ov_loss_dict['rec_loss'].item()
-            psnr_train += (20 * torch.log10(torch.max(x) / torch.sqrt(ov_loss_dict['rec_loss']))).item()
+            psnr_train += ov_loss_dict['psnr_loss'].item()
 
     model.eval()
     with torch.no_grad():
@@ -133,25 +121,27 @@ def train_necst(args: argparse):
         for test_imgs, test_labels in tqdm(test_dl):
             test_imgs = test_imgs.to(device, non_blocking=True)
             test_labels = test_labels.to(device, non_blocking=True)
-            test_logits, test_rec, test_inv, test_var, test_mu, test_logvar = model(test_imgs)
-            test_loss_dict = criterion(args, test_logits, test_rec,
-                                       test_inv, test_var,
-                                       test_imgs, test_labels,
-                                       test_mu, test_logvar)
+            test_rec = model(test_imgs)
+            test_loss_dict = criterion(args, test_imgs, test_rec)
 
-            _, predicted = test_logits.max(1)
             total += test_labels.size(0)
-            correct += predicted.eq(test_labels).sum().item()
 
-            test_loss_dict["accuracy"] = test_logits.max(1)[1].eq(test_labels).sum() / test_labels.size(0)
-
-    test_acc = correct * 100 / total
     if args.verbose:
-        print(f"Test Accuracy: {test_acc}")
         print(" - ".join([f"{key}: {round(test_loss_dict[key].item(), 5)}" for key in test_loss_dict]))
         print(" - ".join(
             [f"{key}: {round(test_loss_dict[key].item() * coeff_dict[key], 5)}" for key in test_loss_dict]))
 
+    log_interface(key=f"test/loss/total", value=test_loss_dict["total_loss"].item())
+    log_interface(key=f"test/loss/rec", value=test_loss_dict["rec_loss"].item())
+    log_interface(key=f"test/loss/kld", value=test_loss_dict["kld_loss"].item())
+    log_interface(key=f"test/loss/inv", value=test_loss_dict["inv_loss"].item())
+    log_interface(key=f"test/loss/var", value=test_loss_dict["var_loss"].item())
+    log_interface(key=f"test/loss/cls", value=test_loss_dict["cls_loss"].item())
+
 
 def train_djsccf(args):
+    pass
+
+
+def train_necst(args):
     pass

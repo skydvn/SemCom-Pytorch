@@ -79,6 +79,8 @@ if __name__ == "__main__":
         train_necst(args=args)
     elif args.mode == "djsccf":
         train_djsccf(args=args)
+    elif args.mode == "djsccn":
+        train_djsccn(args=args)
     else:
         # sem_valid(args=args)
         print("else = currently do nothing")
