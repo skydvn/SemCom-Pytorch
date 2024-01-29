@@ -97,8 +97,6 @@ class DJSCCN_CIFAR(nn.Module):
             zT = torch.conj(z).permute(0, 1, 3, 2)
         else:
             zT = z.permute(0, 1, 3, 2)
-        print(z.size())
-        print(zT.size())
         # Multiply z and zT = sqrt2
         sqrt2 = torch.sqrt(torch.matmul(zT, z))
         # divide z and sqrt2 = div
