@@ -269,7 +269,7 @@ def train_djsccf(args: argparse):
         model.eval()
         with torch.no_grad():
             correct = 0
-            total, rec_val, kld_val, inv_val, var_val, cls_val, psnr_val = 0, 0, 0, 0, 0, 0
+            total, rec_val, kld_val, inv_val, var_val, cls_val, psnr_val = 0, 0, 0, 0, 0, 0, 0
             for test_imgs, test_labels in tqdm(test_dl):
                 f_noise = torch.normal(mean=torch.zeros(test_imgs[:, 0:1, :].size()),
                                        std=torch.ones(test_imgs[:, 0:1, :].size()) * 0).to(device)
