@@ -269,7 +269,7 @@ def train_djsccf(args: argparse):
         model.eval()
         with torch.no_grad():
             correct = 0
-            total = 0
+            total, rec_val, kld_val, inv_val, var_val, cls_val, psnr_val = 0, 0, 0, 0, 0, 0
             for test_imgs, test_labels in tqdm(test_dl):
                 f_noise = torch.normal(mean=torch.zeros(test_imgs[:, 0:1, :].size()),
                                        std=torch.ones(test_imgs[:, 0:1, :].size()) * 0).to(device)
@@ -279,17 +279,30 @@ def train_djsccf(args: argparse):
                     test_rec = model(x)
                     test_loss_dict = criterion(args, x, test_rec)
 
-                    total += test_loss_dict["rec_loss"]
-            total = total/len(test_dl)
+                    total += test_loss_dict["total_loss"].item()
+                    rec_val += test_loss_dict["rec_loss"].item()
+                    kld_val += test_loss_dict["kld_loss"].item()
+                    inv_val += test_loss_dict["inv_loss"].item()
+                    var_val += test_loss_dict["var_loss"].item()
+                    cls_val += test_loss_dict["cls_loss"].item()
+                    psnr_val += test_loss_dict["psnr_loss"].item()
+            total = total / len(test_dl)
+            rec_val = rec_val / len(test_dl)
+            kld_val = kld_val / len(test_dl)
+            inv_val = inv_val / len(test_dl)
+            var_val = var_val / len(test_dl)
+            cls_val = cls_val / len(test_dl)
+            psnr_val = psnr_val / len(test_dl)
         if args.verbose:
             print(f"rec loss: {total}")
 
-        log_interface(key=f"test/loss/total", value=test_loss_dict["total_loss"].item())
-        log_interface(key=f"test/loss/rec", value=total)
-        log_interface(key=f"test/loss/kld", value=test_loss_dict["kld_loss"].item())
-        log_interface(key=f"test/loss/inv", value=test_loss_dict["inv_loss"].item())
-        log_interface(key=f"test/loss/var", value=test_loss_dict["var_loss"].item())
-        log_interface(key=f"test/loss/cls", value=test_loss_dict["cls_loss"].item())
+        log_interface(key=f"test/loss/total", value=total)
+        log_interface(key=f"test/loss/rec", value=rec_val)
+        log_interface(key=f"test/loss/kld", value=kld_val)
+        log_interface(key=f"test/loss/inv", value=inv_val)
+        log_interface(key=f"test/loss/var", value=var_val)
+        log_interface(key=f"test/loss/cls", value=cls_val)
+        log_interface(key=f"test/loss/psnr", value=psnr_val)
 
         # Logging can averaging
         log_interface.step(epoch=epoch, test_len=len(test_dl))
