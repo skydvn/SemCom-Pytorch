@@ -293,6 +293,7 @@ def train_djsccf(args: argparse):
             var_val = var_val / len(test_dl)
             cls_val = cls_val / len(test_dl)
             psnr_val = psnr_val / len(test_dl)
+
         if args.verbose:
             print(f"rec loss: {total}")
 
