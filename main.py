@@ -82,4 +82,4 @@ if __name__ == "__main__":
         trainer = DJSCCFTrainer(args=args)
 
     trainer.train()
-    trainer.evaluate()
+    trainer.evaluate_semantic_communication()
