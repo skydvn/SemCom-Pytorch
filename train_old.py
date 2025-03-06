@@ -22,12 +22,15 @@ from models import *
 
 def train_djsccn(args: argparse):
     # Folder Setup
+
     runs_dir = os.getcwd() + "/runs"
     if not os.path.exists(runs_dir):
         os.mkdir(runs_dir)
+
     ds_dir = runs_dir + f"/{args.ds}"
     if not os.path.exists(ds_dir):
         os.mkdir(ds_dir)
+        
     bs_dir = ds_dir + f"/{args.bs}_{args.out_e}"
     if not os.path.exists(bs_dir):
         os.mkdir(bs_dir)
@@ -216,13 +219,13 @@ def train_djsccf(args: argparse):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
 
     if args.ds == "emnist":
-        in_channel = 2
+        in_channel = 1
         class_num = 10
     elif args.ds == "cifar10":
-        in_channel = 2
+        in_channel = 3
         class_num = 10
     else:
-        in_channel = 2
+        in_channel = 3
         class_num = 10
 
     model = DJSCCN_CIFAR(args, in_channel, class_num).to(device=device)
