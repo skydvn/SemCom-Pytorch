@@ -8,11 +8,14 @@ from utils.log import Log, Model_Info, interpolate
 from utils.logging import Logging
 from glob import glob
 import shutil
+from tensorboardX import SummaryWriter
 
 import torch
 from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
+
+from utils.metric_utils import get_psnr
 
 class BaseTrainer:
     def __init__(self, args):
@@ -70,7 +73,7 @@ class BaseTrainer:
         self.best_model_path = f"{self.exp_dir}/best.pt"
         self.last_model_path = f"{self.exp_dir}/last.pt"
         self.log_train_path = f"{self.exp_dir}/train_log.parquet"
-        self.log_test_path = f"{self.exp_dir}/test_log.parquet"
+        self.log_test_path = f"{self.exp_dir}/test_log.parquet"tơ
         self.config_path = f"{self.exp_dir}/config.json"
     
     def _setup_model(self):
