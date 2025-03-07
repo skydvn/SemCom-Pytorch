@@ -8,7 +8,7 @@ import os
 
 
 def get_mnist(args):
-    path = '/home/duong/data'
+    path = os.path.join(os.getcwd(), "dataset")
 
     transform = transforms.Compose(
         [
@@ -27,7 +27,7 @@ def get_mnist(args):
 
 
 def get_emnist(args):
-    path = '/home/duong/data'
+    path = os.path.join(os.getcwd(), "dataset")
     transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -46,7 +46,7 @@ def get_emnist(args):
 
 
 def get_cifar10(args):
-    path = '/home/duong/data'
+    path = os.path.join(os.getcwd(), "dataset")
     transform = transforms.Compose(
         [
             # transforms.RandomHorizontalFlip(),
@@ -77,8 +77,7 @@ def get_cinic10(args):
             transforms.Normalize(mean=mean, std=std)
         ]
     )
-
-    root_dir = '/home/duong/data/CINIC-10'
+    root_dir = os.path.join(os.getcwd(), "dataset", "CINIC-10")
 
     train_set = ImageFolder(root=root_dir + "/train", transform=transform)
     train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True, num_workers=24)
@@ -132,7 +131,7 @@ def get_dsprites(args):
 
 
 def get_celeb(args):
-    path = '/home/duong/data'
+    path = os.path.join(os.getcwd(), "dataset")
 
     transform = transforms.Compose(
         [

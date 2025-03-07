@@ -72,7 +72,7 @@ if __name__ == "__main__":
                         help='toggle to use wandb for online saving')
     parser.add_argument("--verbose", action="store_true",
                         help="printout mode")
-    parser.add_argument("--mode", type=str, default="necst",
+    parser.add_argument("--mode", type=str, default="djsccf",
                         help="necst/djsccf mode")
     args = parser.parse_args()
 
@@ -80,6 +80,8 @@ if __name__ == "__main__":
         trainer = DJSCCNTrainer(args=args)
     elif args.mode == "djsccn":
         trainer = DJSCCFTrainer(args=args)
+    else:
+        raise ValueError("Invalid mode")
 
     trainer.train()
     trainer.evaluate_semantic_communication()

@@ -54,10 +54,8 @@ class BaseTrainer:
         (self.train_dl, self.test_dl, self.valid_dl), self.args = get_ds(self.args)
         self.log_interface = Logging(self.args)
 
-        if self.args.ds == "emnist":
+        if self.args.ds == "mnist":
             self.in_channel = 1  
         else:
             self.in_channel = 3
         self.class_num = 10
-        
-        self.optimizer = Adam(self.model.parameters(), lr=self.args.lr)

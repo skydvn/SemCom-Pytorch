@@ -2,12 +2,11 @@ from tqdm import tqdm
 import numpy as np
 
 from dataset import *
-from utils.log import Log, Model_Info, interpolate
 from utils.logging import Logging
-
 import torch
-from torch import nn
-from train_base import BaseTrainer
+from torch.optim import Adam
+
+from train.train_base import BaseTrainer
 from models.djsccn import *
 
 class DJSCCNTrainer(BaseTrainer):
@@ -15,6 +14,7 @@ class DJSCCNTrainer(BaseTrainer):
         super().__init__(args)
         
         self.model = DJSCCN_CIFAR(self.args, self.in_channel, self.class_num).to(self.device)
+        self.optimizer = Adam(self.model.parameters(), lr=self.args.lr)
         self.criterion = DJSCCNLoss()
         
     def train(self):
