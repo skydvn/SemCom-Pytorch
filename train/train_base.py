@@ -20,6 +20,30 @@ class BaseTrainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._setup_dirs()
         self._setup_model()
+        self.times = 10
+
+        with open(config_path, 'r') as f:
+            config = yaml.load(f, Loader=yaml.UnsafeLoader)
+            assert dataset_name == config['dataset_name']
+            params = config['params']
+            c = config['inner_channel']
+
+        if dataset_name == 'cifar10':
+            transform = transforms.Compose([transforms.ToTensor(), ])
+            test_dataset = datasets.CIFAR10(root='../dataset/', train=False,
+                                            download=True, transform=transform)
+            test_loader = DataLoader(test_dataset, shuffle=True,
+                                     batch_size=params['batch_size'], num_workers=params['num_workers'])
+
+        elif dataset_name == 'imagenet':
+            transform = transforms.Compose(
+                [transforms.ToTensor(), transforms.Resize((128, 128))])  # the size of paper is 128
+
+            test_dataset = Vanilla(root='../dataset/ImageNet/val', transform=transform)
+            test_loader = DataLoader(test_dataset, shuffle=True,
+                                     batch_size=params['batch_size'], num_workers=params['num_workers'])
+        else:
+            raise Exception('Unknown dataset')
 
     def _setup_dirs(self):
         runs_dir = os.getcwd() + "/runs"
@@ -63,7 +87,7 @@ class BaseTrainer:
     # def evaluate_semantic_communication(self):
     #     self.model.eval()
     #     snr_min, snr_max, snr_step = 0, 33, 3
-    #     for snr in range(snr_min, snr_max, snr_step):
+    #     for snr in range(snr_min, snr_max, snr_step):times
     #         with torch.no_grad():
     #             psnr_valid = 0
     #             for valid_img, _ in tqdm(self.test_dl):
@@ -77,47 +101,22 @@ class BaseTrainer:
     #
     #         print(f"SNR: {snr} - PSNR_Valid: {psnr_valid / len(self.test_dl)}")
 
-    def evaluate(self, config_path, output_dir, dataset_name, times):
-        with open(config_path, 'r') as f:
-            config = yaml.load(f, Loader=yaml.UnsafeLoader)
-            assert dataset_name == config['dataset_name']
-            params = config['params']
-            c = config['inner_channel']
-
-        if dataset_name == 'cifar10':
-            transform = transforms.Compose([transforms.ToTensor(), ])
-            test_dataset = datasets.CIFAR10(root='../dataset/', train=False,
-                                            download=True, transform=transform)
-            test_loader = DataLoader(test_dataset, shuffle=True,
-                                     batch_size=params['batch_size'], num_workers=params['num_workers'])
-
-        elif dataset_name == 'imagenet':
-            transform = transforms.Compose(
-                [transforms.ToTensor(), transforms.Resize((128, 128))])  # the size of paper is 128
-
-            test_dataset = Vanilla(root='../dataset/ImageNet/val', transform=transform)
-            test_loader = DataLoader(test_dataset, shuffle=True,
-                                     batch_size=params['batch_size'], num_workers=params['num_workers'])
-        else:
-            raise Exception('Unknown dataset')
-
+    def evaluate(self, config_path, output_dir, dataset_name):
         name = os.path.splitext(os.path.basename(config_path))[0]
         writer = SummaryWriter(os.path.join(output_dir, 'eval', name))
-        model = DeepJSCC(c=c)
-        model = model.to(params['device'])
         pkl_list = glob.glob(os.path.join(output_dir, 'checkpoints', name, '*.pkl'))
         model.load_state_dict(torch.load(pkl_list[-1]))
-        eval_snr(model, test_loader, writer, params, times)
+        eval_snr(model, test_loader, writer, params)
         writer.close()
 
-    def eval_snr(self, test_loader, writer, param, times=10):
+    def eval_snr(self, test_loader, writer, param):
         snr_list = range(0, 26, 1)
         for snr in snr_list:
             self.model.change_channel(param['channel'], snr)
             test_loss = 0
-            for i in range(times):
+            for i in range(self.times):
                 test_loss += evaluate_epoch(self.model, param, test_loader)
 
-            test_loss /= times
+            test_loss /= self.times
             psnr = get_psnr(image=None, gt=None, mse=test_loss)
             writer.add_scalar('psnr', psnr, snr)
