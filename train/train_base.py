@@ -134,8 +134,8 @@ class BaseTrainer:
     def evaluate(self, config_path, output_dir):
         name = os.path.splitext(os.path.basename(config_path))[0]
         writer = SummaryWriter(os.path.join(output_dir, 'eval', name))
-        pkl_list = glob(os.path.join(output_dir, 'checkpoints', name, '*.pkl'))
-        self.model.load_state_dict(torch.load(pkl_list[-1]))        # Check later
+        # pkl_list = glob(os.path.join(output_dir, 'checkpoints', name, '*.pkl'))
+        # self.model.load_state_dict(torch.load(pkl_list[-1]))        # Check later
         self.eval_snr(writer)
         writer.close()
 
