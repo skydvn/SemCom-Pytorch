@@ -1,9 +1,8 @@
 from tqdm import tqdm
 import numpy as np
 
-from dataset import *
-from utils.logging import Logging
 import torch
+from torch import nn
 from torch.optim import Adam
 
 from train.train_base import BaseTrainer
@@ -49,3 +48,33 @@ class DJSCCNTrainer(BaseTrainer):
             
             self.log_interface.step(epoch=epoch, test_len=len(self.test_dl))
         
+class DJSCCNLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.rec_loss = nn.MSELoss()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
+
+    def forward(self, args, rec, img):
+        rec_loss = self.rec_loss(rec, img)
+
+        cls_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        inv_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        var_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        irep_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        kld_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+
+        psnr_val = 20 * torch.log10(torch.max(img) / torch.sqrt(rec_loss))
+
+        total_loss = args.rec_coeff * rec_loss
+
+        return {
+            "cls_loss": cls_loss,
+            "rec_loss": rec_loss,
+            "psnr_loss": psnr_val,
+            "kld_loss": kld_loss,
+            "inv_loss": inv_loss,
+            "var_loss": var_loss,
+            "irep_loss": irep_loss,
+            "total_loss": total_loss
+        }

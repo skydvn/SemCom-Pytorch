@@ -32,7 +32,7 @@ class DJSCCFTrainer(BaseTrainer):
                     img_c = img[:, layer:layer+1, :].to(self.device)
                     x = torch.cat((img_c, img_c + f_noise), dim=1)
                     rec = self.model(x)
-                    loss_dict = self.criterion(self.args, x, rec)
+                    loss_dict = self.criterion.forward(self.args, x, rec)
                     
                     self.optimizer.zero_grad()
                     loss_dict["total_loss"].backward()
@@ -57,7 +57,7 @@ class DJSCCFTrainer(BaseTrainer):
                         img_c = test_imgs[:, layer:layer+1, :].to(self.device, non_blocking=True)
                         x = torch.cat((img_c, img_c + f_noise), dim=1)
                         test_rec = self.model(x)
-                        test_loss_dict = self.criterion(self.args, x, test_rec)
+                        test_loss_dict = self.criterion.forward(self.args, x, test_rec)
 
                         total += test_loss_dict["total_loss"].item()
                         rec_val += test_loss_dict["rec_loss"].item()
@@ -79,3 +79,35 @@ class DJSCCFTrainer(BaseTrainer):
                 self.log_interface(key=f"test/loss/{key}", value=value.item())
             
             self.log_interface.step(epoch=epoch, test_len=len(self.test_dl))
+
+class DJSCCNLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.rec_loss = nn.MSELoss()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
+
+    def forward(self, args, rec, img):
+        rec_loss = self.rec_loss(rec, img)
+
+        cls_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        inv_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        var_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        irep_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+        kld_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
+
+        psnr_val = 20 * torch.log10(torch.max(img) / torch.sqrt(rec_loss))
+
+        total_loss = args.rec_coeff * rec_loss
+
+        return {
+            "cls_loss": cls_loss,
+            "rec_loss": rec_loss,
+            "psnr_loss": psnr_val,
+            "kld_loss": kld_loss,
+            "inv_loss": inv_loss,
+            "var_loss": var_loss,
+            "irep_loss": irep_loss,
+            "total_loss": total_loss
+        }
+

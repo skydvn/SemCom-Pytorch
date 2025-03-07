@@ -19,9 +19,9 @@ def get_mnist(args):
     train_set = MNIST(root=path, train=True, download=True, transform=transform)
     train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True, num_workers=2)
     test_set = MNIST(root=path, train=False, download=True, transform=transform)
-    test_dl = DataLoader(test_set, batch_size=args.tsbs, shuffle=False, num_workers=2)
+    test_dl = DataLoader(test_set, batch_size=args.bs, shuffle=False, num_workers=2)
     valid_set = MNIST(root=path, train=False, download=True, transform=transform)
-    valid_dl = DataLoader(valid_set, batch_size=args.tsbs, shuffle=False, num_workers=2)
+    valid_dl = DataLoader(valid_set, batch_size=args.bs, shuffle=False, num_workers=2)
 
     return (train_dl, test_dl, valid_dl), args
 
@@ -39,8 +39,8 @@ def get_emnist(args):
     test_set = EMNIST(root=path, split="digits", train=False, download=True, transform=transform)
     valid_set = EMNIST(root=path, split="digits", train=False, download=True, transform=transform)
     train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True, num_workers=1)
-    test_dl = DataLoader(test_set, batch_size=args.tsbs, shuffle=False, num_workers=1)
-    valid_dl = DataLoader(valid_set, batch_size=args.tsbs, shuffle=False, num_workers=1)
+    test_dl = DataLoader(test_set, batch_size=args.bs, shuffle=False, num_workers=1)
+    valid_dl = DataLoader(valid_set, batch_size=args.bs, shuffle=False, num_workers=1)
 
     return (train_dl, test_dl, valid_dl), args
 
@@ -59,9 +59,9 @@ def get_cifar10(args):
     train_set = CIFAR10(root=path, train=True, download=True, transform=transform)
     train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True, num_workers=24)
     test_set = CIFAR10(root=path, train=False, download=True, transform=transform)
-    test_dl = DataLoader(test_set, batch_size=args.tsbs, shuffle=False, num_workers=24)
+    test_dl = DataLoader(test_set, batch_size=args.bs, shuffle=False, num_workers=24)
     valid_set = CIFAR10(root=path, train=False, download=True, transform=transform)
-    valid_dl = DataLoader(valid_set, batch_size=args.tsbs, shuffle=False, num_workers=24)
+    valid_dl = DataLoader(valid_set, batch_size=args.bs, shuffle=False, num_workers=24)
     return (train_dl, test_dl, valid_dl), args
 
 
@@ -82,9 +82,9 @@ def get_cinic10(args):
     train_set = ImageFolder(root=root_dir + "/train", transform=transform)
     train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True, num_workers=24)
     valid_set = ImageFolder(root=root_dir + "/valid", transform=transform)
-    valid_dl = DataLoader(valid_set, batch_size=args.tsbs, shuffle=False, num_workers=24)
+    valid_dl = DataLoader(valid_set, batch_size=args.bs, shuffle=False, num_workers=24)
     test_set = ImageFolder(root=root_dir + "/test", transform=transform)
-    test_dl = DataLoader(test_set, batch_size=args.tsbs, shuffle=False, num_workers=24)
+    test_dl = DataLoader(test_set, batch_size=args.bs, shuffle=False, num_workers=24)
     return (train_dl, test_dl, valid_dl), args
 
 
@@ -145,9 +145,9 @@ def get_celeb(args):
     train_set = CelebA(root=path, split='train', download=True, transform=transform)
     train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True, num_workers=8)
     valid_set = CelebA(root=path, split='valid', download=True, transform=transform)
-    valid_dl = DataLoader(valid_set, batch_size=args.tsbs, shuffle=False, num_workers=8)
+    valid_dl = DataLoader(valid_set, batch_size=args.bs, shuffle=False, num_workers=8)
     test_set = CelebA(root=path, split='test', download=True, transform=transform)
-    test_dl = DataLoader(test_set, batch_size=args.tsbs, shuffle=False, num_workers=8)
+    test_dl = DataLoader(test_set, batch_size=args.bs, shuffle=False, num_workers=8)
 
     return (train_dl, test_dl, valid_dl), args
 
