@@ -79,28 +79,3 @@ class DJSCCFTrainer(BaseTrainer):
                 self.log_interface(key=f"test/loss/{key}", value=value.item())
             
             self.log_interface.step(epoch=epoch, test_len=len(self.test_dl))
-
-    def evaluate_semantic_communication(self):
-        self.model.eval()
-        print("GO cc tre trau vc")
-        snr_min = -33
-        snr_max = 33
-        snr_step = 3
-        for snr in range(snr_min, snr_max, snr_step):
-            with torch.no_grad():
-                psnr_valid = 0
-                for img, _ in tqdm(self.test_dl):
-                    f_noise = torch.normal(mean=torch.zeros(img[:, 0:1, :].size()),
-                                        std=torch.ones(img[:, 0:1, :].size()) * 0).to(self.device)
-                    for layer in range(3):
-                        img_c = img[:, layer:layer+1, :].to(self.device)
-                        valid_img = torch.cat((img_c, img_c + f_noise), dim=1)
-                        # SNR -> Noise
-                        noise = torch.max(valid_img) / (10 ** (snr / 10))
-                        noise = noise.cpu()
-                        valid_rec = self.model.get_semcom_recon(valid_img, noise, self.device)
-                        test_loss_dict = self.criterion(self.args, valid_img, valid_rec)
-
-                    psnr_valid += (20 * torch.log10(torch.max(valid_img) / torch.sqrt(test_loss_dict['rec_loss']))).item()
-
-            print(f"SNR: {snr} - PSNR_Valid: {psnr_valid / len(self.test_dl)}")

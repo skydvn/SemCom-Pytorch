@@ -49,19 +49,3 @@ class DJSCCNTrainer(BaseTrainer):
             
             self.log_interface.step(epoch=epoch, test_len=len(self.test_dl))
         
-    def evaluate_semantic_communication(self):
-        self.model.eval()
-        snr_min, snr_max, snr_step = 0, 33, 3
-        for snr in range(snr_min, snr_max, snr_step):
-            with torch.no_grad():
-                psnr_valid = 0
-                for valid_img, _ in tqdm(self.test_dl):
-                    valid_img = valid_img.to(self.device)
-                    noise = torch.max(valid_img) / (10 ** (snr / 10))
-                    noise = noise.cpu()
-                    valid_rec = self.model.get_semcom_recon(valid_img, noise, self.device)
-                    loss_dict = self.criterion(self.args, valid_img, valid_rec)
-                    
-                    psnr_valid += (20 * torch.log10(torch.max(valid_img) / torch.sqrt(loss_dict['rec_loss']))).item()
-                
-            print(f"SNR: {snr} - PSNR_Valid: {psnr_valid / len(self.test_dl)}")
