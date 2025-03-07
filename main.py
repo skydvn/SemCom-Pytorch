@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # parser.add_argument('--snr_list', default=['19', '13',
     #                     '7', '4', '1'], nargs='+', help='snr_list')
     parser.add_argument('--ratio_list', default=['1/6', '1/12'], nargs='+', help='ratio_list')
-    parser.add_argument('--channel', default='AWGN', type=str,
+    parser.add_argument('--channel_type', default='AWGN', type=str,
                         choices=['AWGN', 'Rayleigh'], help='channel')
     parser.add_argument("--recl", type=str, default='mse',
                         help="Reconstruction Loss")

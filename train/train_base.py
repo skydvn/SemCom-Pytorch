@@ -27,17 +27,17 @@ class BaseTrainer:
     def __init__(self, args):
         self.args = args
         self.device = torch.device("cuda" if torch.cuda.is_available() and args.device else "cpu")
+        self.parallel = False
         self._setup_dirs()
         self._setup_model()
         self.times = 10
-        self.channel = args.channel
+        self.channel_type = args.channel_type
 
         self.dataset_name = args.ds
         self.in_channel = 3         # Check later -> get from data dim
 
         self.batch_size = args.bs
         self.num_workers = args.wk
-        self.device =
 
 
         if self.dataset_name == 'cifar10':
@@ -121,14 +121,14 @@ class BaseTrainer:
 
         with torch.no_grad():
             for iter, (images, _) in enumerate(self.test_loader):
-                images = images.cuda() if param['parallel'] and torch.cuda.device_count(
-                ) > 1 else images.to(param['device'])
+                images = images.cuda() if self.parallel and torch.cuda.device_count(
+                ) > 1 else images.to(self.device)
                 outputs = self.model(images)
                 outputs = image_normalization('denormalization')(outputs)
                 images = image_normalization('denormalization')(images)
-                loss = self.model.criterion(args, images, outputs) if not param['parallel'] else model.module.criterion(
+                loss_dict = self.criterion(self.args, images, outputs) if not self.parallel else self.criterion(
                     images, outputs)
-                epoch_loss += loss.detach().item()
+                epoch_loss += loss_dict["rec_loss"].detach().item()
             epoch_loss /= (iter + 1)
 
         return epoch_loss
@@ -144,7 +144,7 @@ class BaseTrainer:
     def eval_snr(self, writer):
         snr_list = range(0, 26, 1)
         for snr in snr_list:
-            self.change_channel(self.channel, snr)
+            self.change_channel(self.channel_type, snr)
             test_loss = 0
             for i in range(self.times):
                 test_loss += self.evaluate_epoch()     # Check later
