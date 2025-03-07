@@ -32,7 +32,7 @@ class BaseTrainer:
         self.channel = args.channel
 
         self.dataset_name = args.ds
-        self.in_channel = 1
+        self.in_channel = 3         # Check later -> get from data dim
 
         self.batch_size = args.bs
         self.num_workers = args.wk
