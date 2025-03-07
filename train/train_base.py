@@ -17,6 +17,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from utils.metric_utils import get_psnr
 
+
 class BaseTrainer:
     def __init__(self, args):
         self.args = args
@@ -24,6 +25,7 @@ class BaseTrainer:
         self._setup_dirs()
         self._setup_model()
         self.times = 10
+        self.channel = args.channel
 
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.UnsafeLoader)
@@ -33,17 +35,17 @@ class BaseTrainer:
 
         if dataset_name == 'cifar10':
             transform = transforms.Compose([transforms.ToTensor(), ])
-            test_dataset = datasets.CIFAR10(root='../dataset/', train=False,
+            self.test_dataset = datasets.CIFAR10(root='../dataset/', train=False,
                                             download=True, transform=transform)
-            test_loader = DataLoader(test_dataset, shuffle=True,
+            self.test_loader = DataLoader(self.test_dataset, shuffle=True,
                                      batch_size=params['batch_size'], num_workers=params['num_workers'])
 
         elif dataset_name == 'imagenet':
             transform = transforms.Compose(
                 [transforms.ToTensor(), transforms.Resize((128, 128))])  # the size of paper is 128
 
-            test_dataset = Vanilla(root='../dataset/ImageNet/val', transform=transform)
-            test_loader = DataLoader(test_dataset, shuffle=True,
+            self.test_dataset = Vanilla(root='../dataset/ImageNet/val', transform=transform)
+            self.test_loader = DataLoader(self.test_dataset, shuffle=True,
                                      batch_size=params['batch_size'], num_workers=params['num_workers'])
         else:
             raise Exception('Unknown dataset')
@@ -104,21 +106,25 @@ class BaseTrainer:
     #
     #         print(f"SNR: {snr} - PSNR_Valid: {psnr_valid / len(self.test_dl)}")
 
+    def evaluate_epoch(self):
+        test_loss = 0.1
+        return test_loss
+
     def evaluate(self, config_path, output_dir, dataset_name):
         name = os.path.splitext(os.path.basename(config_path))[0]
         writer = SummaryWriter(os.path.join(output_dir, 'eval', name))
-        pkl_list = glob.glob(os.path.join(output_dir, 'checkpoints', name, '*.pkl'))
-        model.load_state_dict(torch.load(pkl_list[-1]))
-        eval_snr(model, test_loader, writer, params)
+        pkl_list = glob(os.path.join(output_dir, 'checkpoints', name, '*.pkl'))
+        self.model.load_state_dict(torch.load(pkl_list[-1]))        # Check later
+        self.eval_snr(writer, params)
         writer.close()
 
-    def eval_snr(self, test_loader, writer, param):
+    def eval_snr(self, writer, param):
         snr_list = range(0, 26, 1)
         for snr in snr_list:
-            self.model.change_channel(param['channel'], snr)
+            self.model.change_channel(self.channel, snr)
             test_loss = 0
             for i in range(self.times):
-                test_loss += evaluate_epoch(self.model, param, test_loader)
+                test_loss += self.evaluate_epoch(self.model, param, self.test_loader)     # Check later
 
             test_loss /= self.times
             psnr = get_psnr(image=None, gt=None, mse=test_loss)
