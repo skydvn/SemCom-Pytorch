@@ -26,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--disl", type=str, default='kl',
                         help="Invariance and Variance Loss")
     parser.add_argument("--lr", type=float, default=0.01,
-    #                     help="Inner learning Rate")
+                        help="Inner learning Rate")
 
     # Loss Setting
     parser.add_argument("--cls-coeff", type=float, default=0.5,
