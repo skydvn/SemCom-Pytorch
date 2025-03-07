@@ -1,5 +1,4 @@
 import os
-import argparse
 from tqdm import tqdm
 import numpy as np
 
@@ -14,6 +13,9 @@ import torch
 from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
+
+from torchvision import transforms
+from torchvision import datasets
 
 from utils.metric_utils import get_psnr
 
@@ -124,7 +126,7 @@ class BaseTrainer:
             self.model.change_channel(self.channel, snr)
             test_loss = 0
             for i in range(self.times):
-                test_loss += self.evaluate_epoch(self.model, param, self.test_loader)     # Check later
+                test_loss += self.evaluate_epoch()     # Check later
 
             test_loss /= self.times
             psnr = get_psnr(image=None, gt=None, mse=test_loss)
