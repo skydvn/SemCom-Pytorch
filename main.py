@@ -63,6 +63,8 @@ if __name__ == "__main__":
                         help="#number of epochs for invariant representation learning")
     parser.add_argument("--dv", type=int, default=0,
                         help="Index of GPU")
+    parser.add_argument("--device", type=bool, default=True,
+                        help="Return device or not")
     parser.add_argument("--model-log", type=bool, default=True,
                         help="save model log")
     parser.add_argument("--operator", type=str, default='window',

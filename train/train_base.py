@@ -20,12 +20,13 @@ from torch.utils.data import DataLoader
 
 from utils.metric_utils import get_psnr
 from utils.data_utils import image_normalization
+from channels.channel_base import Channel
 
 
 class BaseTrainer:
     def __init__(self, args):
         self.args = args
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() and args.device else "cpu")
         self._setup_dirs()
         self._setup_model()
         self.times = 10
@@ -36,6 +37,7 @@ class BaseTrainer:
 
         self.batch_size = args.bs
         self.num_workers = args.wk
+        self.device =
 
 
         if self.dataset_name == 'cifar10':
@@ -114,11 +116,11 @@ class BaseTrainer:
     #         print(f"SNR: {snr} - PSNR_Valid: {psnr_valid / len(self.test_dl)}")
 
     def evaluate_epoch(self):
-        model.eval()
+        self.model.eval()
         epoch_loss = 0
 
         with torch.no_grad():
-            for iter, (images, _) in enumerate(self.data_loader):
+            for iter, (images, _) in enumerate(self.test_loader):
                 images = images.cuda() if param['parallel'] and torch.cuda.device_count(
                 ) > 1 else images.to(param['device'])
                 outputs = self.model(images)
@@ -142,7 +144,7 @@ class BaseTrainer:
     def eval_snr(self, writer):
         snr_list = range(0, 26, 1)
         for snr in snr_list:
-            self.model.change_channel(self.channel, snr)
+            self.change_channel(self.channel, snr)
             test_loss = 0
             for i in range(self.times):
                 test_loss += self.evaluate_epoch()     # Check later
@@ -150,3 +152,19 @@ class BaseTrainer:
             test_loss /= self.times
             psnr = get_psnr(image=None, gt=None, mse=test_loss)
             writer.add_scalar('psnr', psnr, snr)
+
+    def change_channel(self, channel_type='AWGN', snr=None):
+        if snr is None:
+            self.channel = None
+        else:
+            self.channel = Channel(channel_type, snr)
+
+    def get_channel(self):
+        if hasattr(self, 'channel') and self.channel is not None:
+            return self.channel.get_channel()
+        return Noner
+
+    def loss(self, prd, gt):
+        criterion = nn.MSELoss(reduction='mean')
+        loss = criterion(prd, gt)
+        return loss
