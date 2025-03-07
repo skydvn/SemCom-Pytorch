@@ -1,6 +1,7 @@
 import os
 import argparse
-from train import *
+from train.train_djsccn import DJSCCNTrainer
+from train.train_djsccf import DJSCCFTrainer
 
 # from semcom_valid import sem_valid
 
@@ -71,16 +72,16 @@ if __name__ == "__main__":
                         help='toggle to use wandb for online saving')
     parser.add_argument("--verbose", action="store_true",
                         help="printout mode")
-    parser.add_argument("--mode", type=str, default="necst",
+    parser.add_argument("--mode", type=str, default="djsccf",
                         help="necst/djsccf mode")
     args = parser.parse_args()
 
-    if args.mode == "nesct":
-        train_necst(args=args)
-    elif args.mode == "djsccf":
-        train_djsccf(args=args)
+    if args.mode == "djsccf":
+        trainer = DJSCCNTrainer(args=args)
     elif args.mode == "djsccn":
-        train_djsccn(args=args)
+        trainer = DJSCCFTrainer(args=args)
     else:
-        # sem_valid(args=args)
-        print("else = currently do nothing")
+        raise ValueError("Invalid mode")
+
+    trainer.train()
+    trainer.evaluate_semantic_communication()
