@@ -84,4 +84,5 @@ if __name__ == "__main__":
         raise ValueError("Invalid mode")
 
     trainer.train()
-    trainer.evaluate_semantic_communication()
+    trainer.evaluate()
+
