@@ -8,8 +8,8 @@ from train.train_djsccf import DJSCCFTrainer
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=str, default='./results',
-                        help="Path to output")
+    parser.add_argument('--out', type=str, default='./out',
+                         help="Path to save outputs")
     parser.add_argument("--ds", type=str, default='mnist',
                         help="Dataset")
     parser.add_argument("--base_snr", type=float, default=10,
@@ -65,8 +65,6 @@ if __name__ == "__main__":
                         help="Index of GPU")
     parser.add_argument("--device", type=bool, default=True,
                         help="Return device or not")
-    parser.add_argument("--model-log", type=bool, default=True,
-                        help="save model log")
     parser.add_argument("--operator", type=str, default='window',
                         help="Operator for Pycharm")
 
@@ -81,23 +79,26 @@ if __name__ == "__main__":
                         help='toggle to use wandb for online saving')
     parser.add_argument("--verbose", action="store_true",
                         help="printout mode")
-    parser.add_argument("--algo", type=str, default="djsccf",
+    parser.add_argument("--algo", type=str, default="djsccn",
                         help="necst/djsccf mode")
     args = parser.parse_args()
 
     if args.algo == "djsccf":
-        trainer = DJSCCNTrainer(args=args)
-    elif args.algo == "djsccn":
         trainer = DJSCCFTrainer(args=args)
+    elif args.algo == "djsccn":
+        trainer = DJSCCNTrainer(args=args)
     else:
-        raise ValueError("Invalid mode")
-
-    config_path = "./"
-    output_dir = "./"
+        raise ValueError("Invalid trainer")
 
     trainer.train()
-    trainer.evaluate(
-        config_path=config_path,
-        output_dir=output_dir
-    )
+
+    config_dir = os.path.join(args.out, 'configs')
+    config_files = [os.path.join(config_dir, name) for name in os.listdir(config_dir)
+                    if (args.ds in name or args.ds.upper() in name) and args.channel_type in name and name.endswith('.yaml')]
+    output_dir = args.out
+    for config_path in config_files:
+        trainer.evaluate(
+            config_path=config_path,
+            output_dir=output_dir
+        )
 

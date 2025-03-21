@@ -99,35 +99,3 @@ class DJSCCN_CIFAR(nn.Module):
         z_out = div * sqrt1
 
         return z_out  # Adjusted return value as per PyTorch operations
-
-
-class DJSCCNLoss(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        self.rec_loss = nn.MSELoss()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
-
-    def forward(self, args, rec, img):
-        rec_loss = self.rec_loss(rec, img)
-
-        cls_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
-        inv_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
-        var_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
-        irep_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
-        kld_loss = torch.tensor(0.0, device='cuda:0', requires_grad=True)
-
-        psnr_val = 20 * torch.log10(torch.max(img) / torch.sqrt(rec_loss))
-
-        total_loss = args.rec_coeff * rec_loss
-
-        return {
-            "cls_loss": cls_loss,
-            "rec_loss": rec_loss,
-            "psnr_loss": psnr_val,
-            "kld_loss": kld_loss,
-            "inv_loss": inv_loss,
-            "var_loss": var_loss,
-            "irep_loss": irep_loss,
-            "total_loss": total_loss
-        }
