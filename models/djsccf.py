@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
+from channels.channel_base import Channel
 
 
 class DJSCCF_CIFAR(nn.Module):
     def __init__(self, args, in_channel, class_num):
         super(DJSCCF_CIFAR, self).__init__()
 
+        self.channel_sim = Channel()
         self.in_channel = in_channel
         self.class_num = class_num
         self.inv_cdim = args.inv_cdim  # int(32)  # inv_cdim

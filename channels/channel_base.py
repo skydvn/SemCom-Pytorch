@@ -49,7 +49,8 @@ class Channel(nn.Module):
             half = z_hat.size(1) // 2
             z_hat[:, :half] = h_n[0] * z_hat[:, :half]
             z_hat[:, half:] = h_n[1] * z_hat[:, half:]
-
+        else:
+            pass
         return z_hat + noise
 
     def get_channel(self):
