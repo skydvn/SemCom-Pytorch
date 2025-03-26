@@ -1,0 +1,52 @@
+dataset_name: mnist
+params:
+  algo: djsccn
+  base_snr: 10
+  bs: 128
+  channel_type: AWGN
+  cls_coeff: 0.5
+  clsl: ce
+  device: true
+  disl: kl
+  ds: mnist
+  dv: 0
+  inv_cdim: 32
+  inv_coeff: 0.2
+  irep_e: 1
+  kld_coeff: 0.00025
+  log: false
+  lr: 0.01
+  operator: window
+  out: ./out
+  out_e: 1
+  overall_e: 1
+  ratio_list:
+  - 1/6
+  - 1/12
+  rec_coeff: 1
+  recl: mse
+  vae: false
+  var_cdim: 32
+  var_coeff: 0.2
+  verbose: false
+  wandb: false
+  wandb_entity: scalemind
+  wandb_prj: SemCom-
+  wk: 32
+total_parameters: !!python/object/apply:numpy.core.multiarray.scalar
+- !!python/object/apply:numpy.dtype
+  args:
+  - i8
+  - false
+  - true
+  state: !!python/tuple
+  - 3
+  - <
+  - null
+  - null
+  - null
+  - -1
+  - -1
+  - 0
+- !!binary |
+  oR8DAAAAAAA=

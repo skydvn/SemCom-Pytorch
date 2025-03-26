@@ -96,6 +96,21 @@ if __name__ == "__main__":
     config_files = [os.path.join(config_dir, name) for name in os.listdir(config_dir)
                     if (args.ds in name or args.ds.upper() in name) and args.channel_type in name and name.endswith('.yaml')]
     output_dir = args.out
+    """
+        Switch cases
+        * If train_flag == False:
+            - If full_flag == False: 
+                run the input path 
+            - Elif full_flag == True:
+                for config_path in config_files:
+                    trainer.evaluate(
+                        config_path=config_path,
+                        output_dir=output_dir
+                    )
+        * If train_flag == True:
+                run the newly saved path
+    """
+
     for config_path in config_files:
         trainer.evaluate(
             config_path=config_path,
