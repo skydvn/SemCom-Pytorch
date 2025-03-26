@@ -65,15 +65,21 @@ class DGSC_CIFAR(nn.Module):
         enc = self.normalize_layer(enc)
         return enc
 
-    def get_semcom_recon(self, x, n_var, device):
+    def get_semcom_recon(self, x, n_var, channel, device):
         enc = self.encoder(x)
         enc = self.normalize_layer(enc)
-        # generate Gaussian propagating noise
+        """ Generate Propagating Noise"""
+        if channel == "Gaussian":
+            pass
+        elif channel == "Rayleigh":
+            pass
+        elif channel == "Rician":
+            pass
         noise = torch.normal(mean=torch.zeros(enc.size()),
                              std=torch.ones(enc.size()) * n_var).to(device)
+        """ Simulate a noise by physical channels """
+        var = enc + noise
 
-        var = enc + noise  # simulate a noise by physical channels
-        # print(f"lat: {F.mse_loss(var, enc)}")
         rec = self.decoder(var)
         # print(f"ori: {F.mse_loss(x, rec)}")
         return rec
