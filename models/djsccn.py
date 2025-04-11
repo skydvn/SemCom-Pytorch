@@ -2,23 +2,18 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+
 from channels.channel_base import Channel
+from models.model_base import BaseModel
 
 
-class DJSCCN_CIFAR(nn.Module):
+class DJSCCN_CIFAR(BaseModel):
     def __init__(self, args, in_channel, class_num):
-        super(DJSCCN_CIFAR, self).__init__()
+        super(DJSCCN_CIFAR, self).__init__(args, in_channel, class_num)
 
-        self.in_channel = in_channel
-        self.class_num = class_num
         self.channel_type = "AWGN"
         self.base_snr = None
         self.channel = Channel(channel_type="AWGN", snr = args.base_snr)
-
-        self.var_cdim = args.var_cdim  # int(32)  # var_cdim
-        self.P = 1
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
-        self.e = 1e-24
 
         self.encoder = nn.Sequential(
             nn.Conv2d(self.in_channel, 32, kernel_size=3, stride=2, padding=1),

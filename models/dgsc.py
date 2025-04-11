@@ -3,19 +3,12 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
+from models.model_base import BaseModel
 
-class DGSC_CIFAR(nn.Module):
+
+class DGSC_CIFAR(BaseModel):
     def __init__(self, args, in_channel, class_num):
-        super(DGSC_CIFAR, self).__init__()
-
-        self.in_channel = in_channel
-        self.class_num = class_num
-        self.inv_cdim = args.inv_cdim  # int(32)  # inv_cdim
-        self.var_cdim = args.var_cdim  # int(32)  # var_cdim
-        self.ib_cdim = self.inv_cdim + self.var_cdim
-        self.P = 1
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
-        self.e = 1e-24
+        super(DGSC_CIFAR, self).__init__(args, in_channel, class_num)
 
         self.encoder = nn.Sequential(
             nn.Conv2d(self.in_channel, 32, kernel_size=3, stride=2, padding=1),
