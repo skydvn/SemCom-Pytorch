@@ -105,3 +105,14 @@ class DGSC_CIFAR(nn.Module):
         z_out = div * sqrt1
 
         return z_out  # Adjusted return value as per PyTorch operations
+
+    def change_channel(self, channel_type='AWGN', snr=None):
+        if snr is None:
+            self.channel = None
+        else:
+            self.channel = Channel(channel_type, snr)
+
+    def get_channel(self):
+        if hasattr(self, 'channel') and self.channel is not None:
+            return self.channel.get_channel()
+        return None

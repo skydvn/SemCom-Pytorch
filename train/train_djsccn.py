@@ -17,6 +17,7 @@ class DJSCCNTrainer(BaseTrainer):
         self.model = DJSCCN_CIFAR(self.args, self.in_channel, self.class_num).to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.args.lr)
         self.criterion = DJSCCNLoss()
+        self.base_snr = args.base_snr
         
     def train(self):
 
@@ -42,7 +43,7 @@ class DJSCCNTrainer(BaseTrainer):
             with torch.no_grad():
                 for test_imgs, test_labels in tqdm(self.test_dl):
                     test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
-                    test_rec = self.model(test_imgs)
+                    test_rec = self.model.get_train_recon(test_imgs, self.base_snr)
                     loss = self.criterion.forward(self.args, test_imgs, test_rec)
                     epoch_val_loss += loss.detach().item()
                 epoch_val_loss /= (len(self.test_dl))

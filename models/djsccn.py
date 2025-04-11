@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+from channels.channel_base import Channel
 
 
 class DJSCCN_CIFAR(nn.Module):
@@ -10,9 +11,11 @@ class DJSCCN_CIFAR(nn.Module):
 
         self.in_channel = in_channel
         self.class_num = class_num
-        self.inv_cdim = args.inv_cdim  # int(32)  # inv_cdim
+        self.channel_type = "AWGN"
+        self.base_snr = None
+        self.channel = Channel(channel_type="AWGN", snr = args.base_snr)
+
         self.var_cdim = args.var_cdim  # int(32)  # var_cdim
-        self.ib_cdim = self.inv_cdim + self.var_cdim
         self.P = 1
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
         self.e = 1e-24
@@ -55,28 +58,25 @@ class DJSCCN_CIFAR(nn.Module):
         )
 
     def forward(self, x):
-        enc = self.encoder(x)
-        enc = self.normalize_layer(enc)
-        rec = self.decoder(enc)
-        return rec
+        z = self.encoder(x)
+        z = self.normalize_layer(z)
+        x_hat = self.decoder(z)
+        return x_hat
 
     def get_latent(self, x):
         enc = self.encoder(x)
         enc = self.normalize_layer(enc)
         return enc
 
-    def get_semcom_recon(self, x, n_var, device):
-        enc = self.encoder(x)
-        enc = self.normalize_layer(enc)
-        # generate Gaussian propagating noise
-        noise = torch.normal(mean=torch.zeros(enc.size()),
-                             std=torch.ones(enc.size()) * n_var).to(device)
+    def get_train_recon(self, x, base_snr):
 
-        var = enc + noise  # simulate a noise by physical channels
-        # print(f"lat: {F.mse_loss(var, enc)}")
-        rec = self.decoder(var)
-        # print(f"ori: {F.mse_loss(x, rec)}")
-        return rec
+        z = self.encoder(x)
+        z = self.normalize_layer(z)
+        if hasattr(self, 'channel') and self.channel is not None:
+            z = self.channel(z)
+            # print(f"channel_type: {self.channel.channel_type}, snr: {self.channel.snr}")
+        x_hat = self.decoder(z)
+        return x_hat
 
     def get_latent_size(self, x):
         enc = self.encoder(x)
@@ -98,4 +98,15 @@ class DJSCCN_CIFAR(nn.Module):
         div = z / sqrt2
         z_out = div * sqrt1
 
-        return z_out  # Adjusted return value as per PyTorch operations
+        return z_out
+
+    def change_channel(self, channel_type='AWGN', snr=None):
+        if snr is None:
+            self.channel = None
+        else:
+            self.channel = Channel(channel_type, snr)
+
+    def get_channel(self):
+        if hasattr(self, 'channel') and self.channel is not None:
+            return self.channel.get_channel()
+        return None
