@@ -22,6 +22,7 @@ class DJSCCNTrainer(BaseTrainer):
     def train(self):
 
         for epoch in range(self.args.out_e):
+            print(f"Epoch {epoch}")
             epoch_train_loss = 0
             epoch_val_loss = 0
 
