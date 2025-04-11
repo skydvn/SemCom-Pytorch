@@ -3,7 +3,13 @@ import argparse
 from train.train_djsccn import DJSCCNTrainer
 from train.train_djsccf import DJSCCFTrainer
 
-# from semcom_valid import sem_valid
+trainer_map = {
+    "djsccf": DJSCCFTrainer,
+    "djsccn": DJSCCNTrainer
+    }
+
+ratio_list = [1/6, 1/12]
+snr_list = [19, 13, 7, 4, 1]
 
 
 if __name__ == "__main__":
@@ -81,18 +87,10 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    trainer_map = {
-    "djsccf": DJSCCFTrainer,
-    "djsccn": DJSCCNTrainer
-    }
-
     if args.algo not in trainer_map:
         raise ValueError("Invalid trainer")
     
     TrainerClass = trainer_map[args.algo]
-
-    ratio_list = [1/6, 1/12]
-    snr_list = [19, 13, 7, 4, 1]
 
     if args.train_flag:
         for ratio in ratio_list:
