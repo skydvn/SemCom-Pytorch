@@ -14,9 +14,6 @@ if __name__ == "__main__":
                         help="Dataset")
     parser.add_argument("--base_snr", type=float, default=10,
                         help="SNR during train")
-    # parser.add_argument('--snr_list', default=['19', '13',
-    #                     '7', '4', '1'], nargs='+', help='snr_list')
-    parser.add_argument('--ratio_list', default=['1/6', '1/12'], nargs='+', help='ratio_list')
     parser.add_argument('--channel_type', default='AWGN', type=str,
                         choices=['AWGN', 'Rayleigh'], help='channel')
     parser.add_argument("--recl", type=str, default='mse',
@@ -77,39 +74,48 @@ if __name__ == "__main__":
                         help="printout mode")
     parser.add_argument("--algo", type=str, default="djsccn",
                         help="necst/djsccf mode")
+    
+    # RUNNING
+    parser.add_argument('--train_flag', type=bool, default=True,
+                        help='Training mode')
+    
     args = parser.parse_args()
 
-    if args.algo == "djsccf":
-        trainer = DJSCCFTrainer(args=args)
-    elif args.algo == "djsccn":
-        trainer = DJSCCNTrainer(args=args)
-    else:
+    trainer_map = {
+    "djsccf": DJSCCFTrainer,
+    "djsccn": DJSCCNTrainer
+    }
+
+    if args.algo not in trainer_map:
         raise ValueError("Invalid trainer")
+    
+    TrainerClass = trainer_map[args.algo]
 
-    trainer.train()
+    ratio_list = [1/6, 1/12]
+    snr_list = [19, 13, 7, 4, 1]
 
-    config_dir = os.path.join(args.out, 'configs')
-    config_files = [os.path.join(config_dir, name) for name in os.listdir(config_dir)
-                    if (args.ds in name or args.ds.upper() in name) and args.channel_type in name and name.endswith('.yaml')]
-    output_dir = args.out
-    """
-        Switch cases
-        * If train_flag == False:
-            - If full_flag == False: 
-                run the input path 
-            - Elif full_flag == True:
-                for config_path in config_files:
-                    trainer.evaluate(
-                        config_path=config_path,
-                        output_dir=output_dir
-                    )
-        * If train_flag == True:
-                run the newly saved path
-    """
+    if args.train_flag:
+        for ratio in ratio_list:
+            for snr in snr_list:
+                args.ratio = ratio
+                args.base_snr = snr
 
-    for config_path in config_files:
-        trainer.evaluate(
-            config_path=config_path,
-            output_dir=output_dir
-        )
+                trainer = TrainerClass(args=args)
+                trainer.train()
+    
+    else:
+        trainer = TrainerClass(args=args)
+
+        config_dir = os.path.join(args.out, 'configs')
+        config_files = [os.path.join(config_dir, name) for name in os.listdir(config_dir)
+                        if (args.ds in name or args.ds.upper() in name) and args.channel_type in name and name.endswith('.yaml')]
+        output_dir = args.out
+
+        for config_path in config_files:
+            trainer.evaluate(
+                config_path=config_path,
+                output_dir=output_dir
+            )
+
+    
 
