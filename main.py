@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', type=str, default='./out',
                          help="Path to save outputs")
-    parser.add_argument("--ds", type=str, default='mnist',
+    parser.add_argument("--ds", type=str, default='cifar10',
                         help="Dataset")
     parser.add_argument("--base_snr", type=float, default=10,
                         help="SNR during train")
@@ -58,7 +58,7 @@ if __name__ == "__main__":
                         help="#batch size")
     parser.add_argument("--wk", type=int, default=os.cpu_count(),
                         help="#number of workers")
-    parser.add_argument("--out-e", type=int, default=1,
+    parser.add_argument("--out-e", type=int, default=10,
                         help="#number of epochs")
     parser.add_argument("--dv", type=int, default=0,
                         help="Index of GPU")

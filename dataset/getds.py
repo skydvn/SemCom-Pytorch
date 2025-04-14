@@ -57,11 +57,11 @@ def get_cifar10(args):
     )
 
     train_set = CIFAR10(root=path, train=True, download=True, transform=transform)
-    train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True, num_workers=24)
+    train_dl = DataLoader(train_set, batch_size=args.bs, shuffle=True)
     test_set = CIFAR10(root=path, train=False, download=True, transform=transform)
-    test_dl = DataLoader(test_set, batch_size=args.bs, shuffle=False, num_workers=24)
+    test_dl = DataLoader(test_set, batch_size=args.bs, shuffle=False)
     valid_set = CIFAR10(root=path, train=False, download=True, transform=transform)
-    valid_dl = DataLoader(valid_set, batch_size=args.bs, shuffle=False, num_workers=24)
+    valid_dl = DataLoader(valid_set, batch_size=args.bs, shuffle=False)
     return (train_dl, test_dl, valid_dl), args
 
 

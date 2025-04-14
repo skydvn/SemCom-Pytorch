@@ -84,12 +84,12 @@ class DJSCCN_CIFAR(BaseModel):
         sqrt1 = torch.sqrt(k * self.P)
 
         # Conjugate Transpose of z
-        if torch.is_complex(z):
-            zT = torch.conj(z).permute(0, 1, 3, 2)
-        else:
-            zT = z.permute(0, 1, 3, 2)
+        # if torch.is_complex(z):
+        #     zT = torch.conj(z).permute(0, 1, 3, 2)
+        # else:
+        #     zT = z.permute(0, 1, 3, 2)
         # Multiply z and zT = sqrt2
-        sqrt2 = torch.sqrt(zT*z + self.e)
+        sqrt2 = torch.sqrt(z*z + self.e)
         div = z / sqrt2
         z_out = div * sqrt1
 
