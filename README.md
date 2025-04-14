@@ -18,3 +18,7 @@ Eirina Bourtsoulatze; David Burth Kurka; Deniz Gündüz,
 IEEE Transactions on Cognitive Communications and Networking,
 Paper: https://ieeexplore.ieee.org/document/8723589
 
+```bash
+python main.py --train_flag True
+python main.py --train_flag False
+

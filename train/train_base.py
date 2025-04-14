@@ -27,7 +27,8 @@ class BaseTrainer:
         self.params = vars(args)
         self.device = torch.device("cuda" if torch.cuda.is_available() and args.device else "cpu")
         self.parallel = False
-        self._setup_dirs()
+        if args.train_flag == "True":
+            self._setup_dirs()
         self._setup_model()
         self.times = 10
         self.channel_type = args.channel_type
@@ -41,7 +42,7 @@ class BaseTrainer:
 
         out_dir = self.args.out
         
-        phaser = str(self.args.ds).upper() + '_' + str(self.args.channel_type) + \
+        phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_' + str(self.args.channel_type) + \
             '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
         
         self.root_log_dir = out_dir + '/' + 'logs/' + phaser

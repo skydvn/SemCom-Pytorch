@@ -82,7 +82,7 @@ if __name__ == "__main__":
                         help="necst/djsccf mode")
     
     # RUNNING
-    parser.add_argument('--train_flag', type=bool, default=True,
+    parser.add_argument('--train_flag', type=str, default="True",
                         help='Training mode')
     
     args = parser.parse_args()
@@ -92,7 +92,8 @@ if __name__ == "__main__":
     
     TrainerClass = trainer_map[args.algo]
 
-    if args.train_flag:
+    if args.train_flag == "True":
+        print("Training mode")
         for ratio in ratio_list:
             for snr in snr_list:
                 args.ratio = ratio
@@ -102,6 +103,7 @@ if __name__ == "__main__":
                 trainer.train()
     
     else:
+        print("Evaluation mode")
         trainer = TrainerClass(args=args)
 
         config_dir = os.path.join(args.out, 'configs')
