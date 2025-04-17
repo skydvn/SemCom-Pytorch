@@ -96,8 +96,8 @@ class BaseTrainer:
     def eval_snr(self, writer):
         snr_list = range(0, 26, 1)
         for snr in snr_list:
-            print("snr: ", snr)
-            self.change_channel(self.channel_type, snr)
+            print(f"channel: {self.channel_type} || snr: {snr}")
+            self.model.change_channel(self.channel_type, snr)
             test_loss = 0
             for i in range(self.times):
                 test_loss += self.evaluate_epoch()     # Check later

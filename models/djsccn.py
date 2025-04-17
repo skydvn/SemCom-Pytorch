@@ -55,6 +55,7 @@ class DJSCCN_CIFAR(BaseModel):
     def forward(self, x):
         z = self.encoder(x)
         z = self.normalize_layer(z)
+        z = self.channel(z)
         x_hat = self.decoder(z)
         return x_hat
 
@@ -64,11 +65,12 @@ class DJSCCN_CIFAR(BaseModel):
         return enc
 
     def get_train_recon(self, x, base_snr):
-
         z = self.encoder(x)
         z = self.normalize_layer(z)
-        if hasattr(self, 'channel') and self.channel is not None:
+        # print("Debug")
+        if self.channel is not None:
             z = self.channel(z)
+            # print(f"channel: {self.channel.channel_type} {self.channel.snr} | loss: {loss(z, z_z)}")
             # print(f"channel_type: {self.channel.channel_type}, snr: {self.channel.snr}")
         x_hat = self.decoder(z)
         return x_hat
