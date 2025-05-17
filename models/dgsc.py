@@ -109,3 +109,15 @@ class DGSC_CIFAR(BaseModel):
         if hasattr(self, 'channel') and self.channel is not None:
             return self.channel.get_channel()
         return None
+
+    def channel_perturb(self, x, domain_str):
+        """
+        :param x:
+        :param domain_str:
+        :return:
+        """
+        # TODO: z = self.encode(x)
+        # TODO: change_channel according to domain_str
+        # TODO: z = self.channel(z)
+        # TODO: rec = self.decode(z)
+        return

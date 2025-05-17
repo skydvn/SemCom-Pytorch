@@ -20,15 +20,24 @@ class DGSC(BaseTrainer):
         self.criterion = DGSCLoss()
 
     def train(self):
-
+        domain_list = []
+        rec = []
         for epoch in range(self.args.out_e):
             epoch_train_loss = 0
             epoch_val_loss = 0
 
             self.model.train()
             for x, y in tqdm(self.train_dl):
+
                 x, y = x.to(self.device), y.to(self.device)
-                rec = self.model(x)
+
+                # TODO: Loop over domain_list
+                # TODO: Infer x through model with different settings
+                # TODO: x --Encoder--> z --Channel--> z' --Decoder--> x'
+                for i, domain_str in enumerate(domain_list):
+                    rec[i].append(self.model.channel_perturb(x, domain_str))
+                    # TODO: loss += self.criterion.forward(self.args, x, rec[i])
+
                 loss = self.criterion.forward(self.args, x, rec)
 
                 self.optimizer.zero_grad()
@@ -55,6 +64,16 @@ class DGSC(BaseTrainer):
         self.writer.close()
         self.save_config()
 
+    # def domain_gen(self, x, domain_list):
+    #     """
+    #     :param x: input images
+    #     :param domain_list: list of settings
+    #     :return:
+    #     [x1, x2, x3, ... x4]: the generated noise with different channels from x
+    #     """
+    #     # TODO: Loop over domain_list (for example: [AWGN10, Rayleigh15]
+    #
+    #     return
 
 class DJSCCNLoss(nn.Module):
     def __init__(self):
@@ -68,3 +87,5 @@ class DJSCCNLoss(nn.Module):
         total_loss = args.rec_coeff * rec_loss
 
         return total_loss
+
+
