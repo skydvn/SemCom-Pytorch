@@ -11,41 +11,48 @@ from train.train_base import BaseTrainer
 from models.dgsc import *
 
 
-class DGSC(BaseTrainer):
+class DGSCTrainer(BaseTrainer):
     def __init__(self, args):
         super().__init__(args)
 
         self.model = DGSC_CIFAR(self.args, self.in_channel, self.class_num).to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.args.lr)
         self.criterion = DGSCLoss()
+        self.domain_list = ['AWGN', 'Rayleigh', 'Rician']
 
     def train(self):
-        domain_list = []
-        rec = []
+        domain_list = self.domain_list
+        rec = [ [] for _ in domain_list ]
         for epoch in range(self.args.out_e):
             epoch_train_loss = 0
             epoch_val_loss = 0
-
+            
             self.model.train()
-            for x, y in tqdm(self.train_dl):
-
+            for batch_idx, (x, y) in enumerate(tqdm(self.train_dl)):
                 x, y = x.to(self.device), y.to(self.device)
-
-                # TODO: Loop over domain_list
-                # TODO: Infer x through model with different settings
-                # TODO: x --Encoder--> z --Channel--> z' --Decoder--> x'
+                channel_losses = []  # loss của từng kênh
+                total_loss = 0  # Tổng loss để backward 
                 for i, domain_str in enumerate(domain_list):
-                    rec[i].append(self.model.channel_perturb(x, domain_str))
-                    # TODO: loss += self.criterion.forward(self.args, x, rec[i])
-
-                loss = self.criterion.forward(self.args, x, rec)
-
+                    # TODO: Loop over domain_list
+                    # TODO: Infer x through model with different settings
+                    # TODO: x --Encoder--> z --Channel--> z' --Decoder--> x'
+                    out = self.model.channel_perturb(x, domain_str)
+                    channel_loss = self.criterion.forward(self.args, out, x)
+                    channel_losses.append(channel_loss.item())  # Lưu loss của từng kênh
+                    total_loss += channel_loss 
+                    if batch_idx % 50 == 0: 
+                        tqdm.write(f'Lap {i}, domain: {domain_str}, SNR: {self.args.base_snr}, epoch: {epoch}, loss: {channel_loss.item()}')
+                    #rec[i].append(out)
+                    #print(f'Channel Loss of {domain_str}: {channel_loss.item()}')  # In loss của từng kênh
                 self.optimizer.zero_grad()
-                loss.backward()
+                total_loss.backward()
                 self.optimizer.step()
+            
+                epoch_train_loss += total_loss.detach().item()
+                #print(f'Channel Losses: {channel_losses}')  # In loss của từng kênh 
 
-                epoch_train_loss += loss.detach().item()
-            epoch_train_loss /= (len(self.train_dl))
+            epoch_train_loss /= len(self.train_dl)
+            print('Epoch Loss:', epoch_train_loss)
             self.writer.add_scalar('train/_loss', epoch_train_loss, epoch)
 
             self.model.eval()
@@ -55,16 +62,15 @@ class DGSC(BaseTrainer):
                     test_rec = self.model(test_imgs)
                     loss = self.criterion.forward(self.args, test_imgs, test_rec)
                     epoch_val_loss += loss.detach().item()
-                epoch_val_loss /= (len(self.test_dl))
+                epoch_val_loss /= len(self.test_dl)
                 self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
-
-            # Saving checkpoint
+                print('Validation Loss:', epoch_val_loss)
+            # Lưu checkpoint
             self.save_model(epoch=epoch, model=self.model)
 
         self.writer.close()
         self.save_config()
-
-    # def domain_gen(self, x, domain_list):
+     # def domain_gen(self, x, domain_list):
     #     """
     #     :param x: input images
     #     :param domain_list: list of settings
@@ -74,8 +80,8 @@ class DGSC(BaseTrainer):
     #     # TODO: Loop over domain_list (for example: [AWGN10, Rayleigh15]
     #
     #     return
-
-class DJSCCNLoss(nn.Module):
+        
+class DGSCLoss(nn.Module):
     def __init__(self):
         super().__init__()
 

@@ -31,7 +31,7 @@ class DJSCCNTrainer(BaseTrainer):
                 x, y = x.to(self.device), y.to(self.device)
                 rec = self.model(x)
                 loss = self.criterion.forward(self.args, x, rec)
-                
+                print("losss", loss)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()

@@ -2,14 +2,15 @@ import os
 import argparse
 from train.train_djsccn import DJSCCNTrainer
 from train.train_djsccf import DJSCCFTrainer
-
+from train.train_dgsc import DGSCTrainer
 trainer_map = {
     "djsccf": DJSCCFTrainer,
-    "djsccn": DJSCCNTrainer
+    "djsccn": DJSCCNTrainer,
+    "dgsc": DGSCTrainer,
     }
 
-ratio_list = [1/6, 1/12]
-snr_list = [19, 13, 7, 4, 1]
+ratio_list = [1/6]
+snr_list = [19]
 
 
 if __name__ == "__main__":
@@ -54,8 +55,8 @@ if __name__ == "__main__":
                         help="VAE Weight Coefficient")
 
     # Meta Setting
-    parser.add_argument("--bs", type=int, default=128,
-                        help="#batch size")
+    parser.add_argument("--bs", type=int, default=128, # 50000 ảnh cifar thì cần qua 50000/bs batch mỗi lần bs ảnh
+                        help="#batch size") # nếu 64 thì có 782 batch, 128 thì 391 batch 
     parser.add_argument("--wk", type=int, default=os.cpu_count(),
                         help="#number of workers")
     parser.add_argument("--out-e", type=int, default=10,
