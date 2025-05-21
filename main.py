@@ -59,7 +59,7 @@ if __name__ == "__main__":
                         help="#batch size") # nếu 64 thì có 782 batch, 128 thì 391 batch 
     parser.add_argument("--wk", type=int, default=os.cpu_count(),
                         help="#number of workers")
-    parser.add_argument("--out-e", type=int, default=10,
+    parser.add_argument("--out-e", type=int, default=1000,
                         help="#number of epochs")
     parser.add_argument("--dv", type=int, default=0,
                         help="Index of GPU")
