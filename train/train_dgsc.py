@@ -41,13 +41,13 @@ class DGSCTrainer(BaseTrainer):
                     channel_losses.append(channel_loss.item())  # Lưu loss của từng kênh
                     total_loss += channel_loss 
                     if batch_idx % 50 == 0: 
-                        tqdm.write(f'Lap {i}, domain: {domain_str}, SNR: {self.args.base_snr}, epoch: {epoch}, loss: {channel_loss.item()}')
+                        tqdm.write(f'Domain: {domain_str}, SNR: {self.args.base_snr}, epoch: {epoch}, loss: {channel_loss.item()}')
                     #rec[i].append(out)
                     #print(f'Channel Loss of {domain_str}: {channel_loss.item()}')  # In loss của từng kênh
                 self.optimizer.zero_grad()
                 total_loss.backward()
                 self.optimizer.step()
-            
+        
                 epoch_train_loss += total_loss.detach().item()
                 #print(f'Channel Losses: {channel_losses}')  # In loss của từng kênh 
 
@@ -55,8 +55,20 @@ class DGSCTrainer(BaseTrainer):
             print('Epoch Loss:', epoch_train_loss)
             self.writer.add_scalar('train/_loss', epoch_train_loss, epoch)
 
+
+            # """Lấy một input image bất kỳ từ tập train và thử domain_gen"""
+            # sample_img, _ = next(iter(self.train_dl))
+            # sample_img = sample_img[0].unsqueeze(0).to(self.device) 
+            # self.domain_gen(sample_img)
+
+
             self.model.eval()
             with torch.no_grad():
+                #"""In để đảm bảo có channel """
+                # if self.model.channel is not None:
+                #     print("Validation... has ")
+                # else:
+                #     print("Validation... no channel")
                 for test_imgs, test_labels in tqdm(self.test_dl):
                     test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
                     test_rec = self.model(test_imgs)
@@ -80,7 +92,15 @@ class DGSCTrainer(BaseTrainer):
     #     # TODO: Loop over domain_list (for example: [AWGN10, Rayleigh15]
     #
     #     return
-        
+    def domain_gen(self,x):
+        domain_list = self.domain_list
+        rec = [[] for _ in domain_list]
+        x.to(self.device)
+        for i, domain_str in enumerate(domain_list):
+            out = self.model.channel_perturb(x, domain_str)
+            rec[i].append(out)
+        print(f"rec: {rec[0].shape}") 
+
 class DGSCLoss(nn.Module):
     def __init__(self):
         super().__init__()

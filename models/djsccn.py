@@ -55,6 +55,9 @@ class DJSCCN_CIFAR(BaseModel):
     def forward(self, x):
         z = self.encoder(x)
         z = self.normalize_layer(z)
+        # if self.channel is not None:
+        #     print("Channel is: ", self.channel.get_channel())
+        #     z = self.channel(z)
         z = self.channel(z)
         x_hat = self.decoder(z)
         return x_hat

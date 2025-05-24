@@ -25,13 +25,13 @@ class DJSCCNTrainer(BaseTrainer):
             print(f"Epoch {epoch}")
             epoch_train_loss = 0
             epoch_val_loss = 0
-
+            
             self.model.train()
             for x, y in tqdm(self.train_dl):
                 x, y = x.to(self.device), y.to(self.device)
                 rec = self.model(x)
                 loss = self.criterion.forward(self.args, x, rec)
-                print("losss", loss)
+                
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()

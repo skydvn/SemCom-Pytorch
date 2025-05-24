@@ -43,14 +43,32 @@ class BaseTrainer:
         out_dir = self.args.out
         
         phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_' + str(self.args.channel_type) + \
-            '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
+            '_' + str(self.args.algo) + '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
         
-        self.root_log_dir = out_dir + '/' + 'logs/' + phaser
         self.root_ckpt_dir = out_dir + '/' + 'checkpoints/' + phaser
+
+        self.root_log_dir = out_dir + '/' + 'logs/' + phaser
         self.root_config_dir = out_dir + '/' + 'configs/' + phaser
         self.writer = SummaryWriter(log_dir=self.root_log_dir)
 
-        self.writer.add_text('config', json.dumps(self.params, indent=4))
+        # Lọc các đối tượng không tuần tự hóa được
+        def filter_non_serializable(obj):
+            if isinstance(obj, (str, int, float, bool, list, dict, type(None))):
+                return obj
+            return str(obj)  # Chuyển các đối tượng không tuần tự hóa được thành chuỗi
+
+        filtered_params = {k: filter_non_serializable(v) for k, v in self.params.items()}
+
+        # In nội dung của filtered_params để kiểm tra
+        print("Filtered Params:")
+        for key, value in filtered_params.items():
+            print(f"{key}: {value} ({type(value)})")
+
+        try:
+            self.writer.add_text('config', json.dumps(filtered_params, indent=4))
+        except TypeError as e:
+            print(f"Error serializing params: {e}")
+            print(f"Filtered params: {filtered_params}")
     
     def _setup_model(self):
         
@@ -70,10 +88,25 @@ class BaseTrainer:
             for iter, (images, _) in enumerate(self.test_dl):
                 images = images.cuda() if self.parallel and torch.cuda.device_count(
                 ) > 1 else images.to(self.device)
-                outputs = self.model(images)
-                outputs = image_normalization('denormalization')(outputs)
-                images = image_normalization('denormalization')(images)
-                loss = self.criterion(self.args, images, outputs) if not self.parallel else self.criterion(
+                model_out = self.model(images)
+                
+                # Lấy phần tử đầu tiên từ tuple trả về bởi mô hình
+                if isinstance(model_out, tuple):
+                    outputs = model_out[0]  # recon_image
+                else:
+                    outputs = model_out
+                if self.args.algo == 'swinjscc' and self.args.train_flag == 'False':
+                    outputs = image_normalization('denormalization')(outputs)
+                    images = image_normalization('denormalization')(images)
+                    loss = self.criterion(images, outputs) if not self.parallel else self.criterion(
+                    images, outputs)
+                if self.args.algo == 'swinjscc':
+                    loss = self.criterion(images, outputs) if not self.parallel else self.criterion(
+                    images, outputs)
+                else:
+                    outputs = image_normalization('denormalization')(outputs)
+                    images = image_normalization('denormalization')(images)
+                    loss = self.criterion(self.args, images, outputs) if not self.parallel else self.criterion(
                     images, outputs)
                 epoch_loss += loss.detach().item()
             epoch_loss /= (iter + 1)
@@ -88,15 +121,19 @@ class BaseTrainer:
         name = os.path.splitext(os.path.basename(config_path))[0]
         writer = SummaryWriter(os.path.join(output_dir, 'eval', name))
         pkl_list = glob(os.path.join(output_dir, 'checkpoints', name, '*.pkl'))
+        if not pkl_list:
+            print(f"Error: No checkpoint files found in {os.path.join(output_dir, 'checkpoints', name)}")
+            return
         self.model.load_state_dict(torch.load(pkl_list[-1]))        # Check later
         print("evaluate")
+        
         self.eval_snr(writer)
         writer.close()
 
     def eval_snr(self, writer):
         snr_list = range(0, 26, 1)
         for snr in snr_list:
-            print(f"channel: {self.channel_type} || snr: {snr}")
+            print(f"model: {self.args.algo} || channel: {self.channel_type} || snr: {snr}")
             self.model.change_channel(self.channel_type, snr)
             test_loss = 0
             for i in range(self.times):
@@ -104,13 +141,14 @@ class BaseTrainer:
 
             test_loss /= self.times
             psnr = get_psnr(image=None, gt=None, mse=test_loss)
+            print(f"Test Loss: {test_loss} || PSNR: {psnr}")
             writer.add_scalar('psnr', psnr, snr)
 
-    def change_channel(self, channel_type='AWGN', snr=None):
+    def change_channel(self, snr=None):
         if snr is None:
             self.channel = None
         else:
-            self.channel = Channel(channel_type, snr)
+            self.channel = Channel(self.channel_type, snr)
 
     def get_channel(self):
         if hasattr(self, 'channel') and self.channel is not None:
@@ -123,6 +161,7 @@ class BaseTrainer:
         return loss
     
     def save_config(self):
+        print("Saving config of algorithm: " + str(self.args.algo))
         if not os.path.exists(os.path.dirname(self.root_config_dir)):
             os.makedirs(os.path.dirname(self.root_config_dir))
         with open(self.root_config_dir + '.yaml', 'w') as f:

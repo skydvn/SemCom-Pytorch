@@ -9,7 +9,8 @@ from models.model_base import BaseModel
 class DGSC_CIFAR(BaseModel):
     def __init__(self, args, in_channel, class_num):
         super(DGSC_CIFAR, self).__init__(args, in_channel, class_num)
-        self.base_snr = args.base_snr
+        self.base_snr = args.base_snr 
+        print(self.base_snr)
         self.encoder = nn.Sequential(
             nn.Conv2d(self.in_channel, 32, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -50,9 +51,9 @@ class DGSC_CIFAR(BaseModel):
     def forward(self, x):
         enc = self.encoder(x)
         enc = self.normalize_layer(enc)
-        if self.channel is not None:
-            print("Channel is: ", self.channel.get_channel())
-            enc = self.channel(enc)
+        # if self.channel is not None:
+        #     #print("Channel is: ", self.channel.get_channel())
+        #     enc = self.channel(enc)
         rec = self.decoder(enc)
         return rec
 
@@ -83,7 +84,7 @@ class DGSC_CIFAR(BaseModel):
     def get_latent_size(self, x):
         enc = self.encoder(x)
         enc = self.normalize_layer(enc)
-        return enc.size()
+        return enc.size() 
 
     def normalize_layer(self, z):
         k = torch.tensor(1.0).to(self.device)  # torch.prod(torch.tensor(z.size()[1:], dtype=torch.float32))
@@ -99,7 +100,6 @@ class DGSC_CIFAR(BaseModel):
         sqrt2 = torch.sqrt(z*z + self.e)
         div = z / sqrt2
         z_out = div * sqrt1
-
         return z_out
 
     def change_channel(self, channel_type='AWGN', snr=None):
@@ -111,7 +111,7 @@ class DGSC_CIFAR(BaseModel):
     def get_channel(self):
         if hasattr(self, 'channel') and self.channel is not None:
             return self.channel.get_channel()
-        return None
+        return None 
 
     def channel_perturb(self, x, domain_str):
         """
@@ -124,7 +124,7 @@ class DGSC_CIFAR(BaseModel):
         # TODO: z = self.channel(z)
         # TODO: rec = self.decode(z)
         z = self.encoder(x)
-        self.change_channel(channel_type=domain_str, snr = self.base_snr)
+        self.change_channel(channel_type = domain_str, snr = self.base_snr)
         z_after_channel = self.channel(z)
         rec = self.decoder(z_after_channel)
         return rec 

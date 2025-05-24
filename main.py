@@ -3,14 +3,17 @@ import argparse
 from train.train_djsccn import DJSCCNTrainer
 from train.train_djsccf import DJSCCFTrainer
 from train.train_dgsc import DGSCTrainer
+from train.train_swindjscc import SWINJSCCTrainer
+from torch import nn
 trainer_map = {
     "djsccf": DJSCCFTrainer,
     "djsccn": DJSCCNTrainer,
-    "dgsc": DGSCTrainer,
+    "swinjscc": SWINJSCCTrainer,
+    "dgsc": DGSCTrainer
     }
 
 ratio_list = [1/6]
-snr_list = [19]
+snr_list = [4]
 
 
 if __name__ == "__main__":
@@ -55,11 +58,11 @@ if __name__ == "__main__":
                         help="VAE Weight Coefficient")
 
     # Meta Setting
-    parser.add_argument("--bs", type=int, default=128, # 50000 ảnh cifar thì cần qua 50000/bs batch mỗi lần bs ảnh
-                        help="#batch size") # nếu 64 thì có 782 batch, 128 thì 391 batch 
+    parser.add_argument("--bs", type=int, default=128,
+                        help="#batch size")
     parser.add_argument("--wk", type=int, default=os.cpu_count(),
                         help="#number of workers")
-    parser.add_argument("--out-e", type=int, default=1000,
+    parser.add_argument("--out-e", type=int, default=10,
                         help="#number of epochs")
     parser.add_argument("--dv", type=int, default=0,
                         help="Index of GPU")
@@ -86,18 +89,58 @@ if __name__ == "__main__":
     parser.add_argument('--train_flag', type=str, default="True",
                         help='Training mode')
     
+    parser.add_argument('--num_iter', type=int, default=10,help='Number of iterations for eDJSCC')
+    parser.add_argument('--num_channels', type=int, default=16, help='Number of channels')
+    parser.add_argument('--num_conv_blocks', type=int, default=2, help='Number of convolutional blocks')
+    parser.add_argument('--num_res_blocks', type=int, default=2, help='Number of residual blocks')
+ 
+
     args = parser.parse_args()
 
     if args.algo not in trainer_map:
         raise ValueError("Invalid trainer")
     
     TrainerClass = trainer_map[args.algo]
+    if args.algo == "swinjscc":
+        args.snr_list = snr_list
+        args.ratio = ratio_list
+        args.pass_channel = True
+        if args.ds == 'cifar10':
+            args.image_dims = (3, 32, 32)
+            args.downsample = 2
+            #args.bs = 128
 
+        # Kích thước latent channels
+        args.channel_number = int(args.var_cdim)
+
+        # Unpack spatial dims
+        _, H, W = args.image_dims
+
+        # Thiết lập encoder_kwargs 
+        if args.ds == 'cifar10':
+            args.encoder_kwargs = dict(
+                img_size=(H, W), patch_size=2, in_chans=args.image_dims[0],
+                embed_dims=[64, 128], depths=[2, 4], num_heads=[4, 8],
+                C=args.channel_number,
+                window_size=2, mlp_ratio=4., qkv_bias=True, qk_scale=None,
+                norm_layer=nn.LayerNorm,  # Sử dụng nn.LayerNorm thay vì None
+                patch_norm=True
+            )
+
+        # Thiết lập decoder_kwargs
+            args.decoder_kwargs = dict(
+                img_size=(H, W),
+                embed_dims=[128, 64], depths=[4, 2], num_heads=[8, 4],
+                C=args.channel_number,
+                window_size=2, mlp_ratio=4., qkv_bias=True, qk_scale=None,
+                norm_layer=nn.LayerNorm,  # Sử dụng nn.LayerNorm thay vì None
+                patch_norm=True
+            )
     if args.train_flag == "True":
         print("Training mode")
         for ratio in ratio_list:
             for snr in snr_list:
-                args.ratio = ratio
+                args.ratio = float(ratio)  # Đảm bảo ratio là float
                 args.base_snr = snr
 
                 trainer = TrainerClass(args=args)
@@ -105,18 +148,38 @@ if __name__ == "__main__":
     
     else:
         print("Evaluation mode")
-        trainer = TrainerClass(args=args)
+        for ratio in ratio_list:
+            for snr in snr_list:
+                args.ratio = ratio
+                args.base_snr = snr
+                trainer = TrainerClass(args=args)
 
+        # # config_dir = os.path.join(args.out, 'configs')
+        # # config_files = [os.path.join(config_dir, name) for name in os.listdir(config_dir)
+        # #                 if (args.ds in name or args.ds.upper() in name) and args.channel_type in name and name.endswith('.yaml')]
+        # # output_dir = args.out
+
+
+        
+
+        # for config_path in config_files:
+        #     trainer.evaluate(
+        #         config_path=config_path,
+        #         output_dir=output_dir
+        #     )
         config_dir = os.path.join(args.out, 'configs')
-        config_files = [os.path.join(config_dir, name) for name in os.listdir(config_dir)
-                        if (args.ds in name or args.ds.upper() in name) and args.channel_type in name and name.endswith('.yaml')]
+        config_files = [
+            os.path.join(config_dir, name)
+            for name in os.listdir(config_dir)
+            if name.endswith('.yaml')
+               and (args.ds.lower() in name.lower())
+               and (args.channel_type.lower() in name.lower())
+               and (args.algo.lower() in name.lower())
+        ]
         output_dir = args.out
 
         for config_path in config_files:
             trainer.evaluate(
-                config_path=config_path,
-                output_dir=output_dir
+            config_path=config_path,
+            output_dir=output_dir
             )
-
-    
-
