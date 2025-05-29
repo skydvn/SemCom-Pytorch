@@ -51,9 +51,10 @@ class DGSC_CIFAR(BaseModel):
     def forward(self, x):
         enc = self.encoder(x)
         enc = self.normalize_layer(enc)
-        # if self.channel is not None:
-        #     #print("Channel is: ", self.channel.get_channel())
-        #     enc = self.channel(enc)
+        if self.channel is None:
+            print("No Channel")
+            #print("Channel is: ", self.channel.get_channel())
+        enc = self.channel(enc)
         rec = self.decoder(enc)
         return rec
 

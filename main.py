@@ -13,7 +13,7 @@ trainer_map = {
     }
 
 ratio_list = [1/6]
-snr_list = [4]
+snr_list = [19,13,4]
 
 
 if __name__ == "__main__":
@@ -62,7 +62,7 @@ if __name__ == "__main__":
                         help="#batch size")
     parser.add_argument("--wk", type=int, default=os.cpu_count(),
                         help="#number of workers")
-    parser.add_argument("--out-e", type=int, default=10,
+    parser.add_argument("--out-e", type=int, default=100,
                         help="#number of epochs")
     parser.add_argument("--dv", type=int, default=0,
                         help="Index of GPU")
