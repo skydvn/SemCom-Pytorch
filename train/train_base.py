@@ -100,13 +100,13 @@ class BaseTrainer:
                     images = image_normalization('denormalization')(images)
                     loss = self.criterion(images, outputs) if not self.parallel else self.criterion(
                     images, outputs)
-                if self.args.algo == 'swinjscc':
+                if self.args.algo == 'swinjscc' :
                     loss = self.criterion(images, outputs) if not self.parallel else self.criterion(
                     images, outputs)
                 else:
                     outputs = image_normalization('denormalization')(outputs)
                     images = image_normalization('denormalization')(images)
-                    loss = self.criterion(self.args, images, outputs) if not self.parallel else self.criterion(
+                    loss = self.criterion(self.args, images, outputs) if not self.parallel else self.criterion(self.args,
                     images, outputs)
                 epoch_loss += loss.detach().item()
             epoch_loss /= (iter + 1)

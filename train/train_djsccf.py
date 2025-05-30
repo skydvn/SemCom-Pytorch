@@ -13,63 +13,47 @@ from models.djsccf import *
 class DJSCCFTrainer(BaseTrainer):
     def __init__(self, args):
         super().__init__(args)
-
+        
         self.model = DJSCCF_CIFAR(self.args, self.in_channel, self.class_num).to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.args.lr)
-        self.criterion = DJSCCNLoss()
-
+        self.criterion = nn.MSELoss(reduction='mean')
+        self.base_snr = args.base_snr
     def train(self):
-
         for epoch in range(self.args.out_e):
+            print(f"Epoch {epoch}")
             epoch_train_loss = 0
-            psnr_train = 0
-            n_var = random.random() * 0.1
-
+            epoch_val_loss = 0
+            
             self.model.train()
-            for img, _ in tqdm(self.train_dl):
-                f_noise = torch.normal(mean=torch.zeros(img[:, 0:1, :].size()),
-                                   std=torch.ones(img[:, 0:1, :].size()) * 0).to(self.device)
-                for layer in range(3):
-                    img_c = img[:, layer:layer+1, :].to(self.device)
-                    x = torch.cat((img_c, img_c + f_noise), dim=1)
-                    rec = self.model(x)
-                    loss = self.criterion.forward(self.args, x, rec)
-                    
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    self.optimizer.step()
-                    
-                    epoch_train_loss += loss.detach().item() # Check layer effect later
+            for x, y in tqdm(self.train_dl):
+                x, y = x.to(self.device), y.to(self.device)
+                recon_x, mu, logvar = self.model(x)
+                loss = self.model.loss(recon_x, x, mu, logvar)
+                #loss = self.criterion(recon_x, x) 
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
 
-                    f_noise = torch.normal(mean=torch.zeros(img[:, 0:1, :].size()),
-                                       std=torch.ones(img[:, 0:1, :].size()) * n_var).to(self.device)
-
-            epoch_train_loss = epoch_train_loss / len(self.train_dl)
+                epoch_train_loss += loss.detach().item()
+            epoch_train_loss /= (len(self.train_dl)) 
+            print('Epoch Loss:', epoch_train_loss)
             self.writer.add_scalar('train/_loss', epoch_train_loss, epoch)
 
             self.model.eval()
             with torch.no_grad():
-                correct = 0
-                total, rec_val, kld_val, inv_val, var_val, cls_val, psnr_val = 0, 0, 0, 0, 0, 0, 0
                 for test_imgs, test_labels in tqdm(self.test_dl):
-                    f_noise = torch.normal(mean=torch.zeros(test_imgs[:, 0:1, :].size()),
-                                        std=torch.ones(test_imgs[:, 0:1, :].size()) * 0).to(self.device)
-                    for layer in range(3):
-                        img_c = test_imgs[:, layer:layer+1, :].to(self.device, non_blocking=True)
-                        x = torch.cat((img_c, img_c + f_noise), dim=1)
-                        test_rec = self.model(x)
-                        test_loss = self.criterion.forward(self.args, x, test_rec)
+                    test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
+                    test_rec, test_mu, test_logvar = self.model(test_imgs)
+                    loss = self.model.loss( test_rec, test_imgs, test_mu, test_logvar)
+                    #loss = self.criterion(test_rec, test_imgs)
+                    epoch_val_loss += loss.detach().item()
+                epoch_val_loss /= (len(self.test_dl))
+                print('Validation Loss:', epoch_val_loss)
+                self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
 
-class DJSCCNLoss(nn.Module):
-    def __init__(self):
-        super().__init__()
+            # Saving checkpoint
+            self.save_model(epoch=epoch, model=self.model)
 
-        self.rec_loss = nn.MSELoss()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu", index=0)
-
-    def forward(self, args, rec, img):
-        rec_loss = self.rec_loss(rec, img)
-        total_loss = args.rec_coeff * rec_loss
-
-        return total_loss
-
+        self.writer.close()
+        self.save_config()
+        

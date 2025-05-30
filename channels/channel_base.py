@@ -3,9 +3,9 @@ import torch.nn as nn
 
 
 class Channel(nn.Module):
-    def __init__(self, channel_type='AWGN', snr=20):
+    def __init__(self, channel_type='AWGN', snr = 20):
         if channel_type not in ['AWGN', 'Rayleigh', 'Rician', 'Nakagami']:
-            raise Exception('Unknown type of channel')
+            raise Exception('Unknown type of channel') 
         super(Channel, self).__init__()
         self.channel_type = channel_type
         self.snr = snr
@@ -54,6 +54,7 @@ class Channel(nn.Module):
             z_hat[:, half:] = h_n[1] * z_hat[:, half:]
         else:
             pass
+        #print('Noise is', noise)
         return z_hat + noise
 
     def get_channel(self):

@@ -1,95 +1,107 @@
 import torch
 import torch.nn as nn
-
+import torch.nn as nn
+import torch.nn.functional as F
 from channels.channel_base import Channel
 from models.model_base import BaseModel
 
 
 class DJSCCF_CIFAR(BaseModel):
-    def __init__(self, args, in_channel, class_num):
+    def __init__(self, args, in_channel, class_num, latent_size=32, beta=1):
         super(DJSCCF_CIFAR, self).__init__(args, in_channel, class_num)
-
-        self.channel_sim = Channel()
-
+        self.channel = Channel(channel_type="AWGN", snr = args.base_snr)
+        self.latent_size = latent_size
+        self.beta = beta
         self.encoder = nn.Sequential(
-            nn.Conv2d(self.in_channel, 32, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(in_channels=64, out_channels=32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(in_channels=32, out_channels=self.var_cdim, kernel_size=3, padding=1),
-            nn.ReLU(),
+            self._conv(3, 32), # B, 32, 16, 16
+            self._conv(32, 32), # B, 32, 8, 8 
+            self._conv(32, 64), # B, 64, 4, 4
+            self._conv(64, 64), # B, 64, 2, 2
         )
+        self.fc_mu = nn.Linear(256, latent_size) 
+        self.fc_var = nn.Linear(256, latent_size)
 
+        # decoder
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(self.var_cdim, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.ConvTranspose2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, in_channel, kernel_size=3, stride=2, padding=1, output_padding=1),
-            nn.SELU(),
+            self._deconv(64, 64),
+            self._deconv(64, 32),
+            self._deconv(32, 32),
+            self._deconv(32, 3),
+            nn.Sigmoid()
         )
+        self.fc_z = nn.Linear(latent_size, 256)
+
+    def encode(self, x):
+        x = self.encoder(x) # B, 64, 2, 2
+        x = x.view(-1, 256) # Bx64x2x2/256, 256 
+        return self.fc_mu(x), self.fc_var(x) # Bx64x2x2/256 , 32 
+
+    def sample(self, mu, logvar):
+        std = torch.exp(0.5*logvar)  # e^(1/2 * log(std^2))
+        eps = torch.randn_like(std)  # random ~ N(0, 1)
+        return eps.mul(std).add_(mu)
+
+    # def decode(self, z):
+    #     z = self.fc_z(z)
+    #     z = z.view(-1, 64, 2, 2)
+    #     return self.decoder(z)
 
     def forward(self, x):
-        enc = self.encoder(x)
-        enc = self.normalize_layer(enc)
-        rec = self.decoder(enc)
-        return rec
+        #print("Input shape:", x.shape)
+        
+        x = self.encoder(x)
+        B, C, H, W = x.shape
+        x = x.view(-1, 256) # BxC(64)xHxW / 256, 256
+        #print("Shape after flattening", x.shape)
+        #print("Shape after fc", self.fc_mu(x).shape)
+        mu = self.fc_mu(x) # 128, 32 
+        logvar = self.fc_var(x)
+        #print("Mu shape:", mu.shape)
+        z = self.sample(mu, logvar)
+        #print("Z shape:", z.shape)
+        z = self.fc_z(z) # 128, 256
+        z = z.reshape(B, 64, H, W) # 128, 64, 2, 2
+        z = self.normalize_layer(z)
+        z = self.channel(z)
+        #print("Z shape after channel:", z.shape)
+        rx = self.decoder(z)
+        return rx, mu, logvar
 
-    def get_latent(self, x):
-        enc = self.encoder(x)
-        enc = self.normalize_layer(enc)
-        return enc
+    def _conv(self, in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(
+                in_channels, out_channels, padding = 1,
+                kernel_size=4, stride=2
+            ),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU()
+        )
 
-    def get_semcom_recon(self, x, n_var, device):
-        enc = self.encoder(x)
-        enc = self.normalize_layer(enc)
-        # generate Gaussian propagating noise
-        noise = torch.normal(mean=torch.zeros(enc.size()),
-                             std=torch.ones(enc.size()) * n_var).to(device)
+    # out_padding is used to ensure output size matches EXACTLY of conv2d;
+    # it does not actually add zero-padding to output :)
+    def _deconv(self, in_channels, out_channels, out_padding=0):
+        return nn.Sequential(
+            nn.ConvTranspose2d(
+                in_channels, out_channels,
+                kernel_size=4, stride=2, padding = 1,output_padding=out_padding
+            ),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU()
+        )
 
-        var = enc + noise  # simulate a noise by physical channels
-        # print(f"lat: {F.mse_loss(var, enc)}")
-        rec = self.decoder(var)
-        # print(f"ori: {F.mse_loss(x, rec)}")
-        return rec
-
-    def get_latent_size(self, x):
-        enc = self.encoder(x)
-        enc = self.normalize_layer(enc)
-        return enc.size()
-
+    def loss(self, recon_x, x, mu, logvar):
+        # reconstruction losses are summed over all elements and batch
+        recon_loss = F.binary_cross_entropy(recon_x, x, reduction='mean') # sum -> mean 
+        # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+        kl_diverge = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        #print(f"recon_loss: {recon_loss}, kl_diverge: {kl_diverge}")
+        return (recon_loss + self.beta * kl_diverge) / x.shape[0]
     def normalize_layer(self, z):
         k = torch.tensor(1.0).to(self.device)  # torch.prod(torch.tensor(z.size()[1:], dtype=torch.float32))
         # Square root of k and P
         sqrt1 = torch.sqrt(k * self.P)
-
-        # Conjugate Transpose of z
-        if torch.is_complex(z):
-            zT = torch.conj(z).permute(0, 1, 3, 2)
-        else:
-            zT = z.permute(0, 1, 3, 2)
-        # Multiply z and zT = sqrt2
-        sqrt2 = torch.sqrt(zT*z + self.e)
+        sqrt2 = torch.sqrt(z*z + self.e)
         div = z / sqrt2
         z_out = div * sqrt1
 
-        return z_out  # Adjusted return value as per PyTorch operations
+        return z_out
