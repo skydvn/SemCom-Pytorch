@@ -28,7 +28,14 @@ class SWINJSCCTrainer(BaseTrainer):
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
         self.criterion = nn.MSELoss(reduction='mean')
         self.base_snr = args.base_snr
-        self.domain_list = ['AWGN', 'Rayleigh']
+        self.domain_list = ['AWGN10', 'Rayleigh6','Rayleigh15']
+
+    def parse_domain(self, domain_str):
+        """Extract channel name and SNR from domain string."""
+        channel_name = ''.join([c for c in domain_str if not c.isdigit()])
+        snr = ''.join([c for c in domain_str if c.isdigit()])
+        return channel_name, int(snr)
+
     def train(self):
         domain_list = self.domain_list 
         for epoch in range(self.args.out_e):
@@ -41,12 +48,13 @@ class SWINJSCCTrainer(BaseTrainer):
                 total_loss = 0  # Tổng loss để backward 
                 channel_losses = []
                 for i, domain_str in enumerate(domain_list):
-                    out = self.model.channel_perturb(x, domain_str)
+                    channel_type, snr = self.parse_domain(domain_str)
+                    out = self.model.channel_perturb(x, channel_type, snr)
                     channel_loss = self.criterion(x, out)
                     channel_losses.append(channel_loss.item())  # Lưu loss của từng kênh
                     total_loss += channel_loss 
                     if batch_idx % 50 == 0: 
-                        tqdm.write(f'Domain: {domain_str}, SNR: {self.args.base_snr}, epoch: {epoch}, loss: {channel_loss.item()}')
+                        tqdm.write(f'Domain: {channel_type}, SNR: {snr}, epoch: {epoch}, loss: {channel_loss.item()}')
 
                 # Backward
                 self.optimizer.zero_grad()
@@ -64,7 +72,8 @@ class SWINJSCCTrainer(BaseTrainer):
             with torch.no_grad():
                 for test_imgs, test_labels in tqdm(self.test_dl):
                     test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
-                    test_rec,_,_ = self.model(test_imgs)
+            
+                    test_rec,_,_ = self.model.forward(test_imgs,snr)
                     loss = self.criterion(test_imgs, test_rec)
                     epoch_val_loss += loss.detach().item()
                 epoch_val_loss /= len(self.test_dl)

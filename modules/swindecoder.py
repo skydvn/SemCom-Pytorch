@@ -118,6 +118,7 @@ class SwinJSCC_Decoder(nn.Module):
     def forward(self, x, snr):
         """Mặc định là SwinJSCC_w/_SAandRA"""
         B, L, C = x.size()
+        print("Snr of decoder", snr)
         snr_cuda = torch.tensor(snr, dtype=torch.float, device=self.device)  # Đảm bảo tensor được tạo trên đúng thiết bị
         snr_batch = snr_cuda.unsqueeze(0).expand(B, -1)
         for i in range(self.layer_num):

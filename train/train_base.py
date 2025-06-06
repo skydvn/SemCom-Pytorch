@@ -42,7 +42,7 @@ class BaseTrainer:
 
         out_dir = self.args.out
         if self.args.algo == "swinjscc":
-            phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_'  + \
+            phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_Multichannel'  + \
             '_' + str(self.args.algo) + '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
         else:
             phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_' + str(self.args.channel_type) + \
@@ -144,15 +144,12 @@ class BaseTrainer:
             print(f"model: {self.args.algo} || channel: {self.channel_type} || snr: {snr}")
             self.model.change_channel(self.channel_type, snr)
             test_loss = self.evaluate_epoch()
-            # for i in range(self.times):
-            #     test_loss += self.evaluate_epoch()     # Check later
-
-            # test_loss /= self.times
-            # psnr = get_psnr(image=None, gt=None, mse=test_loss)
-            # print(f"Test Loss: {test_loss} || PSNR: {psnr}")
             for i in range(self.times):
-                psnr += get_psnr(image = None, gt = None, mse = test_loss)
-            print(f"Test Loss: {test_loss} || PSNR: {psnr.item() / self.times}")
+                test_loss += self.evaluate_epoch()     # Check later
+
+            test_loss /= self.times
+            psnr = get_psnr(image=None, gt=None, mse=test_loss)
+            print(f"Test Loss: {test_loss} || PSNR: {psnr}")
             writer.add_scalar('psnr', psnr, snr)
 
     def change_channel(self, snr=None):
