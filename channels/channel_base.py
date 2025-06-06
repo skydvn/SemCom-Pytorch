@@ -10,7 +10,8 @@ class Channel(nn.Module):
         self.channel_type = channel_type
         self.snr = snr
 
-    def forward(self, z_hat, snr = None):
+    def forward(self, z_hat):
+        print("sdf",self.snr)
         if z_hat.dim() not in {3, 4}:
             raise ValueError('Input tensor must be 3D or 4D')
 
@@ -19,11 +20,11 @@ class Channel(nn.Module):
 
         k = z_hat[0].numel()
         sig_pwr = torch.sum(torch.abs(z_hat).square(), dim=(1, 2, 3), keepdim=True) / k
-        if snr is None:
+        if self.snr is None:
             noi_pwr = sig_pwr / (10 ** (self.snr / 10))
         else:
-            noi_pwr = sig_pwr / (10 ** (snr / 10))
-        noise = torch.randn_like(z_hat) * torch.sqrt(noi_pwr / 2)
+            noi_pwr = sig_pwr / (10 ** (self.snr / 10))
+        noise = torch.randn_like(z_hat) * torch.sqrt(noi_pwr / 2 )
 
         if self.channel_type == 'Rayleigh':
             hc = torch.randn(2, device=z_hat.device)

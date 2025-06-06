@@ -38,7 +38,9 @@ class DJSCCNTrainer(BaseTrainer):
 
                 epoch_train_loss += loss.detach().item()
             epoch_train_loss /= (len(self.train_dl))
+            print("Epoch train loss: ", epoch_train_loss)
             self.writer.add_scalar('train/_loss', epoch_train_loss, epoch)
+            
 
             self.model.eval()
             with torch.no_grad():
@@ -48,6 +50,7 @@ class DJSCCNTrainer(BaseTrainer):
                     loss = self.criterion.forward(self.args, test_imgs, test_rec)
                     epoch_val_loss += loss.detach().item()
                 epoch_val_loss /= (len(self.test_dl))
+                print("Val Loss: ", epoch_val_loss)
                 self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
 
             # Saving checkpoint

@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 
 import torch
 from torch import nn
-
+import torch.nn.functional as F
 from torchvision import transforms
 from torchvision import datasets
 from torch.utils.data import DataLoader
@@ -41,8 +41,11 @@ class BaseTrainer:
     def _setup_dirs(self):
 
         out_dir = self.args.out
-        
-        phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_' + str(self.args.channel_type) + \
+        if self.args.algo == "swinjscc":
+            phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_'  + \
+            '_' + str(self.args.algo) + '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
+        else:
+            phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_' + str(self.args.channel_type) + \
             '_' + str(self.args.algo) + '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
         
         self.root_ckpt_dir = out_dir + '/' + 'checkpoints/' + phaser
@@ -86,6 +89,7 @@ class BaseTrainer:
 
         with torch.no_grad():
             for iter, (images, _) in enumerate(self.test_dl):
+
                 images = images.cuda() if self.parallel and torch.cuda.device_count(
                 ) > 1 else images.to(self.device)
                 model_out = self.model(images)
@@ -98,8 +102,8 @@ class BaseTrainer:
                 if self.args.algo == 'swinjscc' and self.args.train_flag == 'False':
                     outputs = image_normalization('denormalization')(outputs)
                     images = image_normalization('denormalization')(images)
-                    loss = self.criterion(images, outputs) if not self.parallel else self.criterion(
-                    images, outputs)
+                    #loss = F.mse_loss(images, outputs) if not self.parallel else F.mse_loss(images, outputs)
+                    loss = self.criterion(images, outputs) if not self.parallel else self.criterion(images, outputs)
                 if self.args.algo == 'swinjscc' :
                     loss = self.criterion(images, outputs) if not self.parallel else self.criterion(
                     images, outputs)
@@ -117,12 +121,14 @@ class BaseTrainer:
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.UnsafeLoader)
             params = config['params']
+        channel_type = self.channel_type  # Lấy giá trị SNR từ self.args
+        name = f"{os.path.splitext(os.path.basename(config_path))[0]}_{channel_type}"  # Include channel in eval name
         
-        name = os.path.splitext(os.path.basename(config_path))[0]
-        writer = SummaryWriter(os.path.join(output_dir, 'eval', name))
-        pkl_list = glob(os.path.join(output_dir, 'checkpoints', name, '*.pkl'))
+        eval_dir = os.path.join(output_dir, 'eval', name)  # Evaluation directory includes channel
+        writer = SummaryWriter(eval_dir)
+        pkl_list = glob(os.path.join(output_dir, 'checkpoints', os.path.splitext(os.path.basename(config_path))[0], '*.pkl'))  # Checkpoint directory remains unchanged
         if not pkl_list:
-            print(f"Error: No checkpoint files found in {os.path.join(output_dir, 'checkpoints', name)}")
+            print(f"Error: No checkpoint files found in {os.path.join(output_dir, 'checkpoints', os.path.splitext(os.path.basename(config_path))[0])}")
             return
         self.model.load_state_dict(torch.load(pkl_list[-1]))        # Check later
         print("evaluate")
@@ -132,16 +138,21 @@ class BaseTrainer:
 
     def eval_snr(self, writer):
         snr_list = range(0, 26, 1)
+        psnr = 0.0 
         for snr in snr_list:
+            psnr = 0.0 
             print(f"model: {self.args.algo} || channel: {self.channel_type} || snr: {snr}")
             self.model.change_channel(self.channel_type, snr)
-            test_loss = 0
-            for i in range(self.times):
-                test_loss += self.evaluate_epoch()     # Check later
+            test_loss = self.evaluate_epoch()
+            # for i in range(self.times):
+            #     test_loss += self.evaluate_epoch()     # Check later
 
-            test_loss /= self.times
-            psnr = get_psnr(image=None, gt=None, mse=test_loss)
-            print(f"Test Loss: {test_loss} || PSNR: {psnr}")
+            # test_loss /= self.times
+            # psnr = get_psnr(image=None, gt=None, mse=test_loss)
+            # print(f"Test Loss: {test_loss} || PSNR: {psnr}")
+            for i in range(self.times):
+                psnr += get_psnr(image = None, gt = None, mse = test_loss)
+            print(f"Test Loss: {test_loss} || PSNR: {psnr.item() / self.times}")
             writer.add_scalar('psnr', psnr, snr)
 
     def change_channel(self, snr=None):

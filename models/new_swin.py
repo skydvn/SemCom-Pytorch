@@ -3,14 +3,14 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 from random import choice
-from channels.channel_base import Channel
+from channels.channel import Channel
 from models.model_base import BaseModel
 from modules.swinencoder import create_encoder
 from modules.swindecoder import create_decoder
 # from config import config
-class SWINJSCC(BaseModel):
+class NEWSWINJSCC(BaseModel):
     def __init__(self, args, in_channel, class_num):
-        super(SWINJSCC, self).__init__(args, in_channel, class_num)
+        super(NEWSWINJSCC, self).__init__(args, in_channel, class_num)
         self.args = args
         print("sdfdfs", args.ratio)
         print("egwreg",args.base_snr)
@@ -33,14 +33,14 @@ class SWINJSCC(BaseModel):
         self.snr = int(args.base_snr)
         self.channel = Channel(channel_type="AWGN", snr=self.snr)
         self.channel_number = int(args.ratio * (2 * 3 * 2 ** (self.downsample * 2)))
-    def feature_pass_channel(self, feature, chan_param):
-        noisy_feature = self.channel(feature)  # Loại bỏ avg_pwr
+    def feature_pass_channel(self, feature, chan_param,avg_pwr=None):
+        noisy_feature = self.channel.forward(feature, chan_param,avg_pwr)  # Loại bỏ avg_pwr
         return noisy_feature
 
 
     def forward(self, input_image, given_SNR=None, given_rate=None):  # input_image: là x
         B, _, H, W = input_image.shape
-
+        print()
         if H != self.H or W != self.W:
             self.encoder.update_resolution(H, W)
             self.decoder.update_resolution(H // (2 ** self.downsample), W // (2 ** self.downsample))
@@ -50,29 +50,7 @@ class SWINJSCC(BaseModel):
 
         CBR = self.channel_number / (2 * 3 * 2 ** (self.downsample * 2))
         avg_pwr = torch.sum(feature ** 2) / mask.sum()
-
-        if self.pass_channel:
-            # Chuyển đổi feature về 4D trước khi qua kênh
-           # print("Name of channel: ", self.channel.get_channel()) 
-            #print("Namw of channel", self.get_channel())
-            B, L, C = feature.shape
-            H_patch = input_image.shape[2] // (2**self.downsample)
-            W_patch = input_image.shape[3] // (2**self.downsample)
-            assert H_patch * W_patch == L, (
-            f"Mismatch tokens: L={L} nhưng H_patch×W_patch="
-            f"{H_patch}×{W_patch}={H_patch*W_patch}"
-            )
-            #H = W = int(L**0.5)  # Giả định L là số lượng patch (H * W)
-            feature_4D = feature.reshape(B, H_patch, W_patch, C).permute(0, 3, 1, 2)  # Chuyển đổi về (B, C, H, W)
-
-            # Qua kênh
-            noisy_feature_4D = self.feature_pass_channel(feature_4D, self.snr)
-
-            # Chuyển đổi noisy_feature về 3D để truyền vào decoder
-            noisy_feature = noisy_feature_4D.flatten(2).permute(0, 2, 1)  # Chuyển đổi về (B, L, C)
-        else:
-            noisy_feature = feature
-
+        noisy_feature = self.feature_pass_channel(feature,self.snr,avg_pwr)
         noisy_feature = noisy_feature * mask
         # Decode
         recon_image = self.decoder(noisy_feature, self.snr)
@@ -134,35 +112,11 @@ class SWINJSCC(BaseModel):
             self.W = W
         feature, mask = self.encoder(input_image, self.snr, self.channel_number)
 
-        # CBR = self.channel_number / (2 * 3 * 2 ** (self.downsample * 2))
-        # avg_pwr = torch.sum(feature ** 2) / mask.sum()
-
-        if self.pass_channel:
-            # Chuyển đổi feature về 4D trước khi qua kênh
-            #print("Name of channellll: ", self.channel.get_channel()) 
-            B, L, C = feature.shape
-            H_patch = input_image.shape[2] // (2**self.downsample)
-            W_patch = input_image.shape[3] // (2**self.downsample)
-            assert H_patch * W_patch == L, (
-            f"Mismatch tokens: L={L} nhưng H_patch×W_patch="
-            f"{H_patch}×{W_patch}={H_patch*W_patch}"
-            )
-            #H = W = int(L**0.5)  # Giả định L là số lượng patch (H * W)
-            feature_4D = feature.reshape(B, H_patch, W_patch, C).permute(0, 3, 1, 2)  # Chuyển đổi về (B, C, H, W)
-
-            # Qua kênh
-            self.change_channel(channel_type=domain_list, snr=self.snr)
-            #print("Name of channel: ", self.channel.get_channel())
-            noisy_feature_4D = self.feature_pass_channel(feature_4D, self.snr)
-
-            # Chuyển đổi noisy_feature về 3D để truyền vào decoder
-            noisy_feature = noisy_feature_4D.flatten(2).permute(0, 2, 1)  # Chuyển đổi về (B, L, C)
-        else:
-            noisy_feature = feature
-
+        self.change_channel(channel_type=domain_list, snr = self.snr)
+        avg_pwr = torch.sum(feature ** 2) / mask.sum()
+        noisy_feature = self.feature_pass_channel(feature,self.snr,avg_pwr)
         noisy_feature = noisy_feature * mask
         # Decode
         recon_image = self.decoder(noisy_feature, self.snr)
 
         return recon_image
-

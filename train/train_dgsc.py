@@ -63,9 +63,20 @@ class DGSCTrainer(BaseTrainer):
 
 
             self.model.eval()
-            val_loss = self.evaluate_epoch()
-            self.writer.add_scalar('val/loss', val_loss, epoch)
-            print(f"[Val]   Epoch {epoch}: loss = {val_loss:.4f}")
+            with torch.no_grad():
+                #"""In để đảm bảo có channel """
+                # if self.model.channel is not None:
+                #     print("Validation... has ")
+                # else:
+                #     print("Validation... no channel")
+                for test_imgs, test_labels in tqdm(self.test_dl):
+                    test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
+                    test_rec = self.model(test_imgs)
+                    loss = self.criterion.forward(self.args, test_imgs, test_rec)
+                    epoch_val_loss += loss.detach().item()
+                epoch_val_loss /= len(self.test_dl)
+                self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
+                print('Validation Loss:', epoch_val_loss)
             # Lưu checkpoint
             self.save_model(epoch=epoch, model=self.model)
 

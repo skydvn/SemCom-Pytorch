@@ -13,7 +13,7 @@ trainer_map = {
     }
 
 ratio_list = [1/6]
-snr_list = [19,13,4]
+snr_list = [13]
 
 
 if __name__ == "__main__":
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument("--base_snr", type=float, default=10,
                         help="SNR during train")
     parser.add_argument('--channel_type', default='AWGN', type=str,
-                        choices=['AWGN', 'Rayleigh'], help='channel')
+                         help='channel')
     parser.add_argument("--recl", type=str, default='mse',
                         help="Reconstruction Loss")
     parser.add_argument("--clsl", type=str, default='ce',
@@ -173,7 +173,6 @@ if __name__ == "__main__":
             for name in os.listdir(config_dir)
             if name.endswith('.yaml')
                and (args.ds.lower() in name.lower())
-               and (args.channel_type.lower() in name.lower())
                and (args.algo.lower() in name.lower())
         ]
         output_dir = args.out
