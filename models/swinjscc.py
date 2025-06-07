@@ -40,7 +40,7 @@ class SWINJSCC(BaseModel):
 
     def forward(self, input_image,snr_chan):  # input_image: là x
         B, _, H, W = input_image.shape
-        print("Channel swin is", self.channel.get_channel())
+        #print("Channel swin is", self.channel.get_channel())
 
         if H != self.H or W != self.W:
             self.encoder.update_resolution(H, W)
@@ -155,4 +155,3 @@ class SWINJSCC(BaseModel):
         recon_image = self.decoder(noisy_feature, snr_chan)
 
         return recon_image
-

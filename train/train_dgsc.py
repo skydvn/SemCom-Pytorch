@@ -25,7 +25,7 @@ class DGSCTrainer(BaseTrainer):
         rec = [ [] for _ in domain_list ]
         for epoch in range(self.args.out_e):
             epoch_train_loss = 0
-            epoch_val_loss = 0
+        
             
             self.model.train()
             for batch_idx, (x, y) in enumerate(tqdm(self.train_dl)):
@@ -37,7 +37,7 @@ class DGSCTrainer(BaseTrainer):
                     # TODO: Infer x through model with different settings
                     # TODO: x --Encoder--> z --Channel--> z' --Decoder--> x'
                     out = self.model.channel_perturb(x, domain_str)
-                    channel_loss = self.criterion.forward(self.args, out, x)
+                    channel_loss = self.criterion.forward(self.args, out, x)          
                     channel_losses.append(channel_loss.item())  # Lưu loss của từng kênh
                     total_loss += channel_loss 
                     if batch_idx % 50 == 0: 
@@ -63,35 +63,15 @@ class DGSCTrainer(BaseTrainer):
 
 
             self.model.eval()
-            with torch.no_grad():
-                #"""In để đảm bảo có channel """
-                # if self.model.channel is not None:
-                #     print("Validation... has ")
-                # else:
-                #     print("Validation... no channel")
-                for test_imgs, test_labels in tqdm(self.test_dl):
-                    test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
-                    test_rec = self.model(test_imgs)
-                    loss = self.criterion.forward(self.args, test_imgs, test_rec)
-                    epoch_val_loss += loss.detach().item()
-                epoch_val_loss /= len(self.test_dl)
-                self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
-                print('Validation Loss:', epoch_val_loss)
+            val_loss = self.evaluate_epoch()
+            self.writer.add_scalar('val/loss', val_loss, epoch)
+            print(f"[Val]   Epoch {epoch}: loss = {val_loss:.4f}")
             # Lưu checkpoint
             self.save_model(epoch=epoch, model=self.model)
 
         self.writer.close()
         self.save_config()
-     # def domain_gen(self, x, domain_list):
-    #     """
-    #     :param x: input images
-    #     :param domain_list: list of settings
-    #     :return:
-    #     [x1, x2, x3, ... x4]: the generated noise with different channels from x
-    #     """
-    #     # TODO: Loop over domain_list (for example: [AWGN10, Rayleigh15]
-    #
-    #     return
+
     def domain_gen(self,x):
         domain_list = self.domain_list
         rec = [[] for _ in domain_list]

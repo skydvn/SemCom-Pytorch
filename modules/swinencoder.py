@@ -56,7 +56,7 @@ class SwinTransformerBlock(nn.Module):
         self.register_buffer("attn_mask", attn_mask)
 
     def forward(self, x):
-
+       
         H, W = self.input_resolution
         B, L, C = x.shape
         assert L == H * W, "input feature has wrong size"
@@ -278,7 +278,7 @@ class SwinJSCC_Encoder(nn.Module):
 
     def forward(self, x, snr, rate, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")):  # Thêm tham số device với giá trị mặc định là 'cpu'
         B, C, H, W = x.size() 
-        print("yhre of encoder",snr)
+        #print("snr of encoder ")
         x = self.patch_embed(x) # Giảm kích thước ảnh xuống còn H/2, W/2, số channel là C1
         for i_layer, layer in enumerate(self.layers): # đang ở stage mấy 
             x = layer(x) # x đi qua từng tầng stage 

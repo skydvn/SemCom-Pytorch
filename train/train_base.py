@@ -19,13 +19,14 @@ from torch.utils.data import DataLoader
 from utils.metric_utils import get_psnr, view_model_param
 from utils.data_utils import image_normalization
 from channels.channel_base import Channel
-
+from dataset.getds import get_ds
 
 class BaseTrainer:
     def __init__(self, args):
         self.args = args
         self.params = vars(args)
         self.device = torch.device("cuda" if torch.cuda.is_available() and args.device else "cpu")
+        self.domain_list = args.domain_list
         self.parallel = False
         if args.train_flag == "True":
             self._setup_dirs()
@@ -37,21 +38,21 @@ class BaseTrainer:
 
         self.batch_size = args.bs
         self.num_workers = args.wk
-
-    def _setup_dirs(self):
-
-        out_dir = self.args.out
-        if self.args.algo == "swinjscc":
-            phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_Multichannel'  + \
-            '_' + str(self.args.algo) + '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
-        else:
-            phaser = str(self.args.ds).upper() + '_' + str(self.args.base_snr) + '_' + str(self.args.ratio) + '_' + str(self.args.channel_type) + \
-            '_' + str(self.args.algo) + '_' + time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
         
-        self.root_ckpt_dir = out_dir + '/' + 'checkpoints/' + phaser
+    def _setup_dirs(self):
+        out_dir = self.args.out
+        domain_str = ''.join(getattr(self, 'domain_list', [])) 
+        
+        # Tạo tên phaser với định dạng thời gian 17h04m29s_on_Jun_06_2025
+        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
+        if self.args.algo == "swinjscc":
+            phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
+        else:
+            phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
 
-        self.root_log_dir = out_dir + '/' + 'logs/' + phaser
-        self.root_config_dir = out_dir + '/' + 'configs/' + phaser
+        self.root_ckpt_dir = os.path.join(out_dir, 'checkpoints', phaser)
+        self.root_log_dir = os.path.join(out_dir, 'logs', phaser)
+        self.root_config_dir = os.path.join(out_dir, 'configs', phaser)
         self.writer = SummaryWriter(log_dir=self.root_log_dir)
 
         # Lọc các đối tượng không tuần tự hóa được
@@ -83,7 +84,7 @@ class BaseTrainer:
             self.in_channel = 3
         self.class_num = 10
 
-    def evaluate_epoch(self):
+    def evaluate_epoch(self,snr_chan):
         self.model.eval()
         epoch_loss = 0
 
@@ -92,7 +93,7 @@ class BaseTrainer:
 
                 images = images.cuda() if self.parallel and torch.cuda.device_count(
                 ) > 1 else images.to(self.device)
-                model_out = self.model(images)
+                model_out = self.model.forward(images,snr_chan)
                 
                 # Lấy phần tử đầu tiên từ tuple trả về bởi mô hình
                 if isinstance(model_out, tuple):
@@ -121,16 +122,20 @@ class BaseTrainer:
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.UnsafeLoader)
             params = config['params']
-        channel_type = self.channel_type  # Lấy giá trị SNR từ self.args
-        name = f"{os.path.splitext(os.path.basename(config_path))[0]}_{channel_type}"  # Include channel in eval name
+        channel_type = self.channel_type  
+        name = f"{os.path.splitext(os.path.basename(config_path))[0]}"  
         
         eval_dir = os.path.join(output_dir, 'eval', name)  # Evaluation directory includes channel
         writer = SummaryWriter(eval_dir)
-        pkl_list = glob(os.path.join(output_dir, 'checkpoints', os.path.splitext(os.path.basename(config_path))[0], '*.pkl'))  # Checkpoint directory remains unchanged
+        phaser = os.path.splitext(os.path.basename(config_path))[0]
+        checkpoint_dir = os.path.join(output_dir, 'checkpoints', phaser)
+        pkl_list = glob(os.path.join(checkpoint_dir, '*.pkl'))  # Checkpoint directory remains unchanged
+
         if not pkl_list:
-            print(f"Error: No checkpoint files found in {os.path.join(output_dir, 'checkpoints', os.path.splitext(os.path.basename(config_path))[0])}")
+            print(f"Error: No checkpoint files found in {checkpoint_dir}")
             return
-        self.model.load_state_dict(torch.load(pkl_list[-1]))        # Check later
+
+        self.model.load_state_dict(torch.load(pkl_list[-1]))  # Load the latest checkpoint
         print("evaluate")
         
         self.eval_snr(writer)
@@ -143,9 +148,9 @@ class BaseTrainer:
             psnr = 0.0 
             print(f"model: {self.args.algo} || channel: {self.channel_type} || snr: {snr}")
             self.model.change_channel(self.channel_type, snr)
-            test_loss = self.evaluate_epoch()
+            test_loss = 0
             for i in range(self.times):
-                test_loss += self.evaluate_epoch()     # Check later
+                test_loss += self.evaluate_epoch(snr)     # Check later
 
             test_loss /= self.times
             psnr = get_psnr(image=None, gt=None, mse=test_loss)
@@ -170,25 +175,39 @@ class BaseTrainer:
     
     def save_config(self):
         print("Saving config of algorithm: " + str(self.args.algo))
-        if not os.path.exists(os.path.dirname(self.root_config_dir)):
-            os.makedirs(os.path.dirname(self.root_config_dir))
-        with open(self.root_config_dir + '.yaml', 'w') as f:
-            dict_yaml = {'dataset_name': self.args.ds, 'params': self.params,
-                        'total_parameters': view_model_param(self.model)}
+        
+        # Tạo tên file config bao gồm ds, ratio, domain_list, algo, và timestamp
+        domain_str = ''.join(getattr(self, 'domain_list', []))
+        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
+        config_name = f"{self.args.ds}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}.yaml"
+        config_path = os.path.join(self.root_config_dir, config_name)
+
+        # Đảm bảo thư mục tồn tại trước khi lưu file
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+        with open(config_path, 'w') as f:
+            dict_yaml = {
+                'dataset_name': self.args.ds,
+                'params': self.params,
+                'total_parameters': view_model_param(self.model),
+                'domain_list': getattr(self, 'domain_list', [])
+            }
             yaml.dump(dict_yaml, f)
 
-        # del self.model, self.optimizer, self.train_dl, self.test_dl
-        # del self.writer
-
     def save_model(self, epoch, model):
-        if not os.path.exists(self.root_ckpt_dir):
-            os.makedirs(self.root_ckpt_dir)
-        torch.save(model.state_dict(), '{}.pkl'.format(
-            self.root_ckpt_dir + "/epoch_" + str(epoch)))
+        # Tạo tên file checkpoint bao gồm ds, ratio, domain_list, algo, và timestamp
+        domain_str = ''.join(getattr(self, 'domain_list', []))
+        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
+        checkpoint_dir = f"{self.root_ckpt_dir}"
         
-        files = glob(self.root_ckpt_dir + '/*.pkl')
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+        
+        torch.save(model.state_dict(), f"{checkpoint_dir}/epoch_{epoch}.pkl")
+        
+        # Xóa các checkpoint cũ hơn 1 epoch
+        files = glob(f"{checkpoint_dir}/*.pkl")
         for file in files:
-            epoch_nb = file.split('_')[-1]
-            epoch_nb = int(epoch_nb.split('.')[0])
+            epoch_nb = int(file.split('_')[-1].split('.')[0])
             if epoch_nb < epoch - 1:
                 os.remove(file)

@@ -105,3 +105,8 @@ class DJSCCF_CIFAR(BaseModel):
         z_out = div * sqrt1
 
         return z_out
+    def change_channel(self, channel_type='AWGN', snr=None):
+        if snr is None:
+            self.channel = None
+        else:
+            self.channel = Channel(channel_type, snr)

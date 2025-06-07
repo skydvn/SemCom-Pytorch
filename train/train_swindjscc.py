@@ -17,7 +17,7 @@ from torch.optim import Adam
 from tqdm import tqdm
 
 from models.swinjscc import SWINJSCC
-from models.new_swin import NEWSWINJSCC
+
 #from losses import Distortion  # hoặc nơi bạn định nghĩa loss của SwinJSCC
 
 class SWINJSCCTrainer(BaseTrainer):
@@ -27,15 +27,15 @@ class SWINJSCCTrainer(BaseTrainer):
         self.model = SWINJSCC(args, self.in_channel, self.class_num).to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
         self.criterion = nn.MSELoss(reduction='mean')
-        self.base_snr = args.base_snr
-        self.domain_list = ['AWGN10', 'Rayleigh6','Rayleigh15']
 
+        # self.domain_list = args.domain_list
+        # print(self.domain_list)
     def parse_domain(self, domain_str):
         """Extract channel name and SNR from domain string."""
         channel_name = ''.join([c for c in domain_str if not c.isdigit()])
         snr = ''.join([c for c in domain_str if c.isdigit()])
         return channel_name, int(snr)
-
+    
     def train(self):
         domain_list = self.domain_list 
         for epoch in range(self.args.out_e):
@@ -45,7 +45,7 @@ class SWINJSCCTrainer(BaseTrainer):
             epoch_val_loss = 0
             for batch_idx, (x, y) in enumerate(tqdm(self.train_dl, desc=f"Epoch {epoch}")): 
                 x, y = x.to(self.device), y.to(self.device)
-                total_loss = 0  # Tổng loss để backward 
+                total_loss = 0
                 channel_losses = []
                 for i, domain_str in enumerate(domain_list):
                     channel_type, snr = self.parse_domain(domain_str)
@@ -72,7 +72,7 @@ class SWINJSCCTrainer(BaseTrainer):
             with torch.no_grad():
                 for test_imgs, test_labels in tqdm(self.test_dl):
                     test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
-            
+                    self.model.change_channel(channel_type = 'Rayleigh', snr = 13)
                     test_rec,_,_ = self.model.forward(test_imgs,snr)
                     loss = self.criterion(test_imgs, test_rec)
                     epoch_val_loss += loss.detach().item()
@@ -84,10 +84,5 @@ class SWINJSCCTrainer(BaseTrainer):
 
         self.writer.close()
         self.save_config()
-
-
-
-
-
 
 
