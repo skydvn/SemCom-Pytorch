@@ -201,7 +201,7 @@ trainer_map = {
     "dgsc": DGSCTrainer
     }
 
-ratio_list = [1/6]
+ratio_list = [1/12]
 snr_list = [13]
 
 

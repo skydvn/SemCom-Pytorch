@@ -37,6 +37,7 @@ class SWINJSCCTrainer(BaseTrainer):
         return channel_name, int(snr)
     
     def train(self):
+        total_start_time = time.time()
         domain_list = self.domain_list 
         for epoch in range(self.args.out_e):
             self.model.train()
@@ -81,7 +82,11 @@ class SWINJSCCTrainer(BaseTrainer):
                 print('Validation Loss:', epoch_val_loss)
             # Lưu checkpoint
             self.save_model(epoch=epoch, model=self.model)
-
+        total_end_time = time.time()
+        total_runtime = total_end_time - total_start_time
+        avg_runtime_per_epoch = total_runtime / self.args.out_e
+        print(f"Total training runtime: {total_runtime:.2f} seconds")
+        print(f"Average runtime per epoch: {avg_runtime_per_epoch:.2f} seconds")
         self.writer.close()
         self.save_config()
 

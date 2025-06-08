@@ -52,19 +52,21 @@ class BaseTrainer:
 
         self.root_ckpt_dir = os.path.join(out_dir, 'checkpoints', phaser)
         self.root_log_dir = os.path.join(out_dir, 'logs', phaser)
-        self.root_config_dir = os.path.join(out_dir, 'configs', phaser)
+        # lưu .yaml trực tiếp trong out/configs
+        self.root_config_dir = os.path.join(out_dir, 'configs')
         self.writer = SummaryWriter(log_dir=self.root_log_dir)
+
+        # đảm bảo thư mục config tồn tại
+        os.makedirs(self.root_config_dir, exist_ok=True)
 
         # Lọc các đối tượng không tuần tự hóa được
         def filter_non_serializable(obj):
             if isinstance(obj, (str, int, float, bool, list, dict, type(None))):
                 return obj
-            return str(obj)  # Chuyển các đối tượng không tuần tự hóa được thành chuỗi
+            return str(obj)  
 
         filtered_params = {k: filter_non_serializable(v) for k, v in self.params.items()}
 
-        # In nội dung của filtered_params để kiểm tra
-        print("Filtered Params:")
         for key, value in filtered_params.items():
             print(f"{key}: {value} ({type(value)})")
 
@@ -123,7 +125,7 @@ class BaseTrainer:
             config = yaml.load(f, Loader=yaml.UnsafeLoader)
             params = config['params']
         channel_type = self.channel_type  
-        name = f"{os.path.splitext(os.path.basename(config_path))[0]}"  
+        name = f"{os.path.splitext(os.path.basename(config_path))[0]}_{self.channel_type}"  
         
         eval_dir = os.path.join(output_dir, 'eval', name)  # Evaluation directory includes channel
         writer = SummaryWriter(eval_dir)
@@ -175,15 +177,13 @@ class BaseTrainer:
     
     def save_config(self):
         print("Saving config of algorithm: " + str(self.args.algo))
-        
-        # Tạo tên file config bao gồm ds, ratio, domain_list, algo, và timestamp
-        domain_str = ''.join(getattr(self, 'domain_list', []))
-        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
-        config_name = f"{self.args.ds}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}.yaml"
+        # Lấy phaser từ thư mục checkpoint để đặt tên cho config
+        phaser = os.path.basename(self.root_ckpt_dir)
+        config_name = f"{phaser}.yaml"
         config_path = os.path.join(self.root_config_dir, config_name)
 
-        # Đảm bảo thư mục tồn tại trước khi lưu file
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        # Đảm bảo thư mục config tồn tại
+        os.makedirs(self.root_config_dir, exist_ok=True)
 
         with open(config_path, 'w') as f:
             dict_yaml = {
