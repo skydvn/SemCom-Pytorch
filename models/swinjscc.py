@@ -113,6 +113,7 @@ class SWINJSCC(BaseModel):
         if hasattr(self, 'channel') and self.channel is not None:
             return self.channel.get_channel()
         return None
+    
     def channel_perturb(self, input_image, chan_type, snr_chan):
         B, _, H, W = input_image.shape
 
