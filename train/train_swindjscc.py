@@ -16,8 +16,8 @@ import torch
 from torch.optim import Adam
 from tqdm import tqdm
 
-from models.swinjscc import SWINJSCC
-
+#from models.swinjscc import SWINJSCC
+from models.newswin import SWINJSCC
 #from losses import Distortion  # hoặc nơi bạn định nghĩa loss của SwinJSCC
 
 class SWINJSCCTrainer(BaseTrainer):

@@ -18,6 +18,7 @@ class Channel(nn.Module):
                             + torch.randn(1) ** 2) / 1.414 # tạo hệ số  kênh h với công suất = 1 (sqrt(x^2+y^2)/sqrt(2) = 1)
 
     def gaussian_noise_layer(self, input_layer, std, name=None):
+        print("Awgnn")
         device = input_layer.get_device()
         noise_real = torch.normal(mean=0.0, std=std, size=np.shape(input_layer), device=device)
         noise_imag = torch.normal(mean=0.0, std=std, size=np.shape(input_layer), device=device)
@@ -25,6 +26,7 @@ class Channel(nn.Module):
         return input_layer + noise
 
     def rayleigh_noise_layer(self, input_layer, std, name=None):
+       # print("Rayleighhhh")
         noise_real = torch.normal(mean=0.0, std=std, size=np.shape(input_layer))
         noise_imag = torch.normal(mean=0.0, std=std, size=np.shape(input_layer))
         noise = noise_real + 1j * noise_imag
@@ -57,9 +59,9 @@ class Channel(nn.Module):
         channel_in = channel_tx.reshape(-1)
         L = channel_in.shape[0] 
         channel_in = channel_in[:L // 2] + channel_in[L // 2:] * 1j # chuyển thành số phức mỗi số có chiều /2 
-        #print("channel_in.shape: ", channel_in) 
+       
         """L/2 giá trị đầu tiên khi reshape sẽ thành phần thực, L/2 giá trị sau là phần ảo và chúng tương ứng với nhau
-        và được ghép lại thành số phức là channel_in"""  
+        và được ghép lại thành số phức là channel_in"""
         channel_output = self.complex_forward(channel_in, snr)
         channel_output = torch.cat([torch.real(channel_output), torch.imag(channel_output)]) 
 
@@ -86,12 +88,15 @@ class Channel(nn.Module):
         #     return channel_in
         if self.channel_type == "None":
             print("No channel")
+            return channel_in
         elif self.channel_type == 'AWGN':
+           
             channel_tx = channel_in
             sigma = np.sqrt(1.0 / (2 * 10 ** (chan_param / 10))) # từ chan_param tính ra sigma noise std 
             chan_output = self.gaussian_noise_layer(channel_tx,
                                                     std=sigma,
                                                     name="awgn_chan_noise")
+            
             return chan_output # channel_output lúc này vẫn là số phưcs đã được cộng thêm noise 
 
         elif self.channel_type == 'Rayleigh':
@@ -100,6 +105,7 @@ class Channel(nn.Module):
             chan_output = self.rayleigh_noise_layer(channel_tx,
                                                     std=sigma,
                                                     name="rayleigh_chan_noise")
+            
             return chan_output
 
 
