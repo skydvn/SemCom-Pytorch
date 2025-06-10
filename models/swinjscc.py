@@ -16,7 +16,6 @@ import torch
 from torch.optim import Adam
 from tqdm import tqdm
 
-from models.swinjscc import SWINJSCC
 from collections import OrderedDict
 
 from backpack import backpack, extend
@@ -28,6 +27,7 @@ def extend_all(module):
     extend(module)
     for child in module.children():
         extend_all(child)
+
 class SWINJSCCTrainer(BaseTrainer):
     
     def __init__(self, args):
