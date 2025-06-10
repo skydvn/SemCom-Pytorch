@@ -16,6 +16,7 @@ import torch
 from torch.optim import Adam
 from tqdm import tqdm
 
+from models.swinjscc import SWINJSCC
 from collections import OrderedDict
 
 from backpack import backpack, extend
@@ -27,8 +28,8 @@ def extend_all(module):
     extend(module)
     for child in module.children():
         extend_all(child)
-
 class SWINJSCCTrainer(BaseTrainer):
+    
     def __init__(self, args):
         super().__init__(args)
         # Khởi tạo model SwinJSCC với args
@@ -38,8 +39,8 @@ class SWINJSCCTrainer(BaseTrainer):
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
         self.criterion = nn.MSELoss(reduction='mean')  
         self.num_domains = 3
-        self.penalty_weight = 0.1       # ví dụ 0.1
-        self.ema_decay      = 0.9           # ví dụ 0.9
+        self.penalty_weight = 0.1      
+        self.ema_decay      = 0.9         
         self.penalty_anneal_iters  = 5
         # self.model.decoder = extend(self.model.decoder)
         # self.model.encoder = extend(self.model.encoder)
@@ -50,12 +51,11 @@ class SWINJSCCTrainer(BaseTrainer):
         ]
         for name, m in self.model.decoder.named_modules():
             if isinstance(m, nn.Linear):
-                print(f"  {name}: {m}")
+                print(f"  {name}: {m}")    
         self.bce_extended = extend(nn.CrossEntropyLoss(reduction='none'))
         self.update_count = 0
         self.domain_list = args.domain_list
         print(self.domain_list)
-
     def parse_domain(self, domain_str):
         """Extract channel name and SNR from domain string."""
         channel_name = ''.join([c for c in domain_str if not c.isdigit()])
