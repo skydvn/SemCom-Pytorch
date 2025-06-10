@@ -29,7 +29,6 @@ def extend_all(module):
         extend_all(child)
 
 class SWINJSCCTrainer(BaseTrainer):
-    
     def __init__(self, args):
         super().__init__(args)
         # Khởi tạo model SwinJSCC với args
@@ -56,6 +55,7 @@ class SWINJSCCTrainer(BaseTrainer):
         self.update_count = 0
         self.domain_list = args.domain_list
         print(self.domain_list)
+
     def parse_domain(self, domain_str):
         """Extract channel name and SNR from domain string."""
         channel_name = ''.join([c for c in domain_str if not c.isdigit()])
