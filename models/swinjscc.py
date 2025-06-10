@@ -1,238 +1,164 @@
-from tqdm import tqdm
+import torch
+import torch.nn as nn
 import numpy as np
-import os
-import glob
-import time
-
-import torch
-from torch import nn
-from torch.optim import Adam
-
-from train.train_base import BaseTrainer
-from models.swinjscc import *
-from modules.distortion import Distortion
-
-import torch
-from torch.optim import Adam
-from tqdm import tqdm
-
+import torch.nn.functional as F
+from random import choice
+from channels.channel_base import Channel
+from models.model_base import BaseModel
+from modules.swinencoder import create_encoder
+from modules.swindecoder import create_decoder
 from collections import OrderedDict
+try:
+    from backpack import backpack, extend
+    from backpack.extensions import BatchGrad
+except:
+    backpack = None
 
-from backpack import backpack, extend
-from backpack.extensions import BatchGrad
+# from config import config
+class SWINJSCC(BaseModel):
+    def __init__(self, args, in_channel, class_num):
+        super(SWINJSCC, self).__init__(args, in_channel, class_num)
+        self.args = args
+        # print("sdfdfs", args.ratio)
+        # print("egwreg",args.base_snr)
+        if isinstance(args.ratio, list):
+            raise ValueError(f"args.ratio must be a single value, not a list: {args.ratio}")
+        self.squared_difference = torch.nn.MSELoss(reduction='none')
+        # self.distortion_loss = Distortion(args)
+        self.in_channel = in_channel
+        self.class_num = class_num
+        self.downsample = args.downsample
+        encoder_kwargs = args.encoder_kwargs
+        decoder_kwargs = args.decoder_kwargs
+        self.encoder = create_encoder(**encoder_kwargs)
+        self.decoder = create_decoder(**decoder_kwargs)
+        self.device = torch.device("cuda" if torch.cuda.is_available() and args.device else "cpu")
+        self.pass_channel = args.pass_channel
+        self.H = self.W = 0
+        self.name = "SwinJSCC"
+        #self.multiple_snr = [int(snr) for snr in args.snr_list]
+        #self.snr = int(args.base_snr)
+        #self.channel = Channel(channel_type="AWGN", snr=self.snr)
+        self.channel_number = int(args.ratio * (2 * 3 * 2 ** (self.downsample * 2)))
+    def feature_pass_channel(self, feature):
+        noisy_feature = self.channel(feature)  # Loại bỏ avg_pwr
+        return noisy_feature
 
 
+    def forward(self, input_image,snr_chan):  # input_image: là x
+        B, _, H, W = input_image.shape
+        #print("Channel swin is", self.channel.get_channel())
 
-def extend_all(module):
-    extend(module)
-    for child in module.children():
-        extend_all(child)
+        if H != self.H or W != self.W:
+            self.encoder.update_resolution(H, W)
+            self.decoder.update_resolution(H // (2 ** self.downsample), W // (2 ** self.downsample))
+            self.H = H
+            self.W = W
+        feature, mask = self.encoder(input_image, snr_chan, self.channel_number)
 
-class SWINJSCCTrainer(BaseTrainer):
-    def __init__(self, args):
-        super().__init__(args)
-        # Khởi tạo model SwinJSCC với args
-        self.model = SWINJSCC(args, self.in_channel, self.class_num).to(self.device)
-        extend_all(self.model.decoder)
+        CBR = self.channel_number / (2 * 3 * 2 ** (self.downsample * 2))
+        avg_pwr = torch.sum(feature ** 2) / mask.sum()
 
-        self.optimizer = Adam(self.model.parameters(), lr=args.lr)
-        self.criterion = nn.MSELoss(reduction='mean')  
-        self.num_domains = 3
-        self.penalty_weight = 0.1       # ví dụ 0.1
-        self.ema_decay      = 0.9           # ví dụ 0.9
-        self.penalty_anneal_iters  = 5
-        # self.model.decoder = extend(self.model.decoder)
-        # self.model.encoder = extend(self.model.encoder)
-        #self.model = extend(self.model)
-        self.ema_per_domain = [
-            MovingAverage(ema=self.ema_decay, oneminusema_correction=True)
-            for _ in range(self.num_domains)
-        ]
-        for name, m in self.model.decoder.named_modules():
-            if isinstance(m, nn.Linear):
-                print(f"  {name}: {m}")
-        self.bce_extended = extend(nn.CrossEntropyLoss(reduction='none'))
-        self.update_count = 0
-        self.domain_list = args.domain_list
-        print(self.domain_list)
-
-    def parse_domain(self, domain_str):
-        """Extract channel name and SNR from domain string."""
-        channel_name = ''.join([c for c in domain_str if not c.isdigit()])
-        snr = ''.join([c for c in domain_str if c.isdigit()])
-        return channel_name, int(snr)
-    
-    def train(self):
-        domain_list = self.domain_list 
-        for epoch in range(self.args.out_e):
-            self.model.train()
-
-            epoch_loss = 0
-            epoch_val_loss = 0
-            for batch_idx, (x, y) in enumerate(tqdm(self.train_dl, desc=f"Epoch {epoch}")): 
-                x, y = x.to(self.device), y.to(self.device)
-                total_loss = 0
-                all_in = []
-                all_out = []
-                len_minibatches = []
-                for i, domain_str in enumerate(domain_list):
-                    channel_type, snr = self.parse_domain(domain_str)
-                    out = self.model.channel_perturb(x, channel_type, snr)
-                    # FIXME the tensors should be flattened later
-                    all_in.append(x)  
-                    all_out.append(out)
-                    len_minibatches.append(x.shape[0])
-
-                all_in = torch.cat(all_in, dim=0)
-                all_out = torch.cat(all_out, dim=0)
-                penalty = self.compute_fishr_penalty(all_out, all_in, len_minibatches)
-                loss = self.criterion(all_out, all_in) # la so thuc nen phai dung mse khong dung cross entropy 
-                penalty_weight = 0.1 
-                # if self.update_count >= self.penalty_anneal_iters:
-                #     penalty_weight = self.penalty_weight 
-                # if self.update_count == self.penalty_anneal_iters != 0:
-                # # Reset Adam as in IRM or V-REx, because it may not like the sharp jump in
-                # # gradient magnitudes that happens at this step.
-                #     penalty_weight = 0
-                self.update_count += 1
-
-                objective = loss + penalty_weight * penalty
-                self.optimizer.zero_grad()
-                objective.backward()
-                self.optimizer.step()
-
-                #return {'loss': objective.item(), 'nll': loss.item(), 'penalty': penalty.item()}
-                # Backward
-                total_loss += objective.item()
-            avg_loss = total_loss / len(self.train_dl)
-            self.writer.add_scalar('train/loss', avg_loss, epoch)
-            print(f"[Train] Epoch {epoch}: loss = {avg_loss:.4f}")
-
-            # Validation
-            self.model.eval()
-            with torch.no_grad():
-                for test_imgs, test_labels in tqdm(self.test_dl):
-                    test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
-                    self.model.change_channel(channel_type = 'Rayleigh', snr = 13)
-                    test_rec,_,_ = self.model.forward(test_imgs,snr)
-                    loss = self.criterion(test_imgs, test_rec)
-                    epoch_val_loss += loss.detach().item()
-                epoch_val_loss /= len(self.test_dl)
-                self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
-                print('Validation Loss:', epoch_val_loss)
-            # Lưu checkpoint
-            self.save_model(epoch=epoch, model=self.model)
-
-        self.writer.close()
-        self.save_config()
-
-    def l2_between_dicts(dict_1, dict_2):
-        assert len(dict_1) == len(dict_2)
-        dict_1_values = [dict_1[key] for key in sorted(dict_1.keys())]
-        dict_2_values = [dict_2[key] for key in sorted(dict_1.keys())]
-        return (
-            torch.cat(tuple([t.view(-1) for t in dict_1_values])) -
-            torch.cat(tuple([t.view(-1) for t in dict_2_values]))
-        ).pow(2).mean()
-
-    def compute_fishr_penalty(self, all_logits, all_y, len_minibatches):
-        dict_grads = self._get_grads(all_logits, all_y)
-        grads_var_per_domain = self._get_grads_var_per_domain(dict_grads, len_minibatches)
-        return self._compute_distance_grads_var(grads_var_per_domain)
-
-    def _get_grads(self, logits,y):
-        self.optimizer.zero_grad()
-        loss = self.bce_extended(logits, y).sum()
-        for name, weights in self.model.decoder.named_parameters():
-            if not hasattr(weights, 'grad_batch'):
-                print(f"[WARN] {name} has not been extended!")
-        with backpack(BatchGrad()):
-            loss.backward(
-                inputs=list(self.model.decoder.parameters()), retain_graph=True, create_graph=True
+        if self.pass_channel:
+            B, L, C = feature.shape
+            H_patch = input_image.shape[2] // (2**self.downsample)
+            W_patch = input_image.shape[3] // (2**self.downsample)
+            assert H_patch * W_patch == L, (
+            f"Mismatch tokens: L={L} nhưng H_patch×W_patch="
+            f"{H_patch}×{W_patch}={H_patch*W_patch}"
             )
+            feature_4D = feature.reshape(B, H_patch, W_patch, C).permute(0, 3, 1, 2)  # Chuyển đổi về (B, C, H, W)
 
-        # compute individual grads for all samples across all domains simultaneously
-        dict_grads = OrderedDict()
-        for name, weights in self.model.decoder.named_parameters():
-                    if hasattr(weights, "grad_batch"):
-                        dict_grads[name] = weights.grad_batch.clone().view(weights.grad_batch.size(0), -1)
-                    else:
-                         print(f"[❗WARN] {name} has not been extended! → Có thể gây lỗi `grad_batch`.")    
-                
-            
-        
-        return dict_grads
+            # Qua kênh
+            noisy_feature_4D = self.feature_pass_channel(feature_4D)
 
-    def _get_grads_var_per_domain(self, dict_grads, len_minibatches):
-        # grads var per domain
-        grads_var_per_domain = [{} for _ in range(self.num_domains)]
-        for name, _grads in dict_grads.items():
-            all_idx = 0
-            for domain_id, bsize in enumerate(len_minibatches):
-                env_grads = _grads[all_idx:all_idx + bsize]
-                all_idx += bsize
-                env_mean = env_grads.mean(dim=0, keepdim=True)
-                env_grads_centered = env_grads - env_mean
-                grads_var_per_domain[domain_id][name] = (env_grads_centered).pow(2).mean(dim=0)
+            # Chuyển đổi noisy_feature về 3D để truyền vào decoder
+            noisy_feature = noisy_feature_4D.flatten(2).permute(0, 2, 1)  # Chuyển đổi về (B, L, C)
+        else:
+            noisy_feature = feature
 
-        # moving average
-        for domain_id in range(self.num_domains):
-            grads_var_per_domain[domain_id] = self.ema_per_domain[domain_id].update(
-                grads_var_per_domain[domain_id]
-            )
+        noisy_feature = noisy_feature * mask
+        # Decode
+        recon_image = self.decoder(noisy_feature, snr_chan)
 
-        return grads_var_per_domain
+        return recon_image, CBR, snr_chan
 
-    def _compute_distance_grads_var(self, grads_var_per_domain):
+    def get_latent(self, x):
+        enc,_ = self.encoder(x)
+        enc = self.normalize_layer(enc)
+        return enc
 
-        # compute gradient variances averaged across domains
-        grads_var = OrderedDict(
-            [
-                (
-                    name,
-                    torch.stack(
-                        [
-                            grads_var_per_domain[domain_id][name]
-                            for domain_id in range(self.num_domains)
-                        ],
-                        dim=0
-                    ).mean(dim=0)
-                )
-                for name in grads_var_per_domain[0].keys()
-            ]
-        )
+    def get_train_recon(self, x, base_snr):
+        z = self.encoder(x)
+        z = self.normalize_layer(z)
+        z = self.channel(z)
 
-        penalty = 0
-        for domain_id in range(self.num_domains):
-            penalty += self.l2_between_dicts(grads_var_per_domain[domain_id], grads_var)
-        return penalty / self.num_domains
+        x_hat = self.decoder(z)
+        return x_hat
+
+    def get_latent_size(self, x):
+        enc = self.encoder(x)
+        enc = self.normalize_layer(enc)
+        return enc.size()
+
+    def normalize_layer(self, z):
+        k = torch.tensor(1.0).to(self.device)  # torch.prod(torch.tensor(z.size()[1:], dtype=torch.float32))
+        # Square root of k and P
+        sqrt1 = torch.sqrt(k * self.P)
+        sqrt2 = torch.sqrt(z*z + self.e)
+        div = z / sqrt2
+        z_out = div * sqrt1
+
+        return z_out
+    def change_channel(self, channel_type='AWGN', snr=None):
+        if snr is None:
+            self.channel = None
+        else:
+            self.channel = Channel(channel_type, snr)
+
+    def get_channel(self):
+        if hasattr(self, 'channel') and self.channel is not None:
+            return self.channel.get_channel()
+        return None
     
+    def channel_perturb(self, input_image, chan_type, snr_chan):
+        B, _, H, W = input_image.shape
 
-class MovingAverage:
+        if H != self.H or W != self.W:
+            self.encoder.update_resolution(H, W)
+            self.decoder.update_resolution(H // (2 ** self.downsample), W // (2 ** self.downsample))
+            self.H = H
+            self.W = W
+        feature, mask = self.encoder(input_image, snr_chan, self.channel_number)
+        #print("Featureeee", feature)
+        # CBR = self.channel_number / (2 * 3 * 2 ** (self.downsample * 2))
+        # avg_pwr = torch.sum(feature ** 2) / mask.sum()
 
-    def __init__(self, ema, oneminusema_correction=True):
-        self.ema = ema
-        self.ema_data = {}
-        self._updates = 0
-        self._oneminusema_correction = oneminusema_correction
+        if self.pass_channel:
+            # Chuyển đổi feature về 4D trước khi qua kênh
+            #print("Name of channellll: ", self.channel.get_channel()) 
+            B, L, C = feature.shape
+            H_patch = input_image.shape[2] // (2**self.downsample)
+            W_patch = input_image.shape[3] // (2**self.downsample)
+            assert H_patch * W_patch == L, (
+            f"Mismatch tokens: L={L} nhưng H_patch×W_patch="
+            f"{H_patch}×{W_patch}={H_patch*W_patch}"
+            )
+            #H = W = int(L**0.5)  # Giả định L là số lượng patch (H * W)
+            feature_4D = feature.reshape(B, H_patch, W_patch, C).permute(0, 3, 1, 2)  # Chuyển đổi về (B, C, H, W)
 
-    def update(self, dict_data):
-        ema_dict_data = {}
-        for name, data in dict_data.items():
-            data = data.view(1, -1)
-            if self._updates == 0:
-                previous_data = torch.zeros_like(data)
-            else:
-                previous_data = self.ema_data[name]
+            # Qua kênh
+            self.change_channel(channel_type=chan_type, snr=snr_chan)
+            #print("Name of channel: ", self.channel.get_channel())
+            noisy_feature_4D = self.feature_pass_channel(feature_4D)
 
-            ema_data = self.ema * previous_data + (1 - self.ema) * data
-            if self._oneminusema_correction:
-                # correction by 1/(1 - self.ema)
-                # so that the gradients amplitude backpropagated in data is independent of self.ema
-                ema_dict_data[name] = ema_data / (1 - self.ema)
-            else:
-                ema_dict_data[name] = ema_data
-            self.ema_data[name] = ema_data.clone().detach()
+            # Chuyển đổi noisy_feature về 3D để truyền vào decoder
+            noisy_feature = noisy_feature_4D.flatten(2).permute(0, 2, 1)  # Chuyển đổi về (B, L, C)
+        else:
+            noisy_feature = feature
 
-        self._updates += 1
-        return ema_dict_data
+        noisy_feature = noisy_feature * mask
+        # Decode
+        recon_image = self.decoder(noisy_feature, snr_chan)
+
+        return recon_image
