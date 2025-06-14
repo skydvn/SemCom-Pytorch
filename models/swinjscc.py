@@ -8,11 +8,11 @@ from models.model_base import BaseModel
 from modules.swinencoder import create_encoder
 from modules.swindecoder import create_decoder
 from collections import OrderedDict
-try:
-    from backpack import backpack, extend
-    from backpack.extensions import BatchGrad
-except:
-    backpack = None
+# try:
+#     from backpack import backpack, extend
+#     from backpack.extensions import BatchGrad
+# except:
+#     backpack = None
 
 # from config import config
 class SWINJSCC(BaseModel):

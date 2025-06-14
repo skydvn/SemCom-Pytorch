@@ -4,7 +4,8 @@ import numpy as np
 import torch.nn.functional as F
 from channels.channel_base import Channel
 from models.model_base import BaseModel
-
+# from backpack import backpack, extend
+# from backpack.extensions import BatchGrad
 
 class DGSC_CIFAR(BaseModel):
     def __init__(self, args, in_channel, class_num):
@@ -33,7 +34,7 @@ class DGSC_CIFAR(BaseModel):
             nn.Conv2d(in_channels=32, out_channels=self.var_cdim, kernel_size=3, padding=1),
             nn.ReLU(),
         )
-
+        #self.encoder = extend(self.encoder)
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(self.var_cdim, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -114,7 +115,7 @@ class DGSC_CIFAR(BaseModel):
             return self.channel.get_channel()
         return None 
 
-    def channel_perturb(self, x, domain_str):
+    def channel_perturb(self, x, chan_type, snr_chan):
         """
         :param x:
         :param domain_str:
@@ -125,7 +126,7 @@ class DGSC_CIFAR(BaseModel):
         # TODO: z = self.channel(z)
         # TODO: rec = self.decode(z)
         z = self.encoder(x)
-        self.change_channel(channel_type = domain_str, snr = self.base_snr)
+        self.change_channel(channel_type = chan_type, snr = snr_chan)
         z_after_channel = self.channel(z)
         rec = self.decoder(z_after_channel)
         return rec 

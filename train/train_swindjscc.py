@@ -42,17 +42,17 @@ class SWINJSCCTrainer(BaseTrainer):
         self.penalty_weight = 0.1      
         self.ema_decay      = 0.9         
         self.penalty_anneal_iters  = 5
-        # self.model.decoder = extend(self.model.decoder)
-        # self.model.encoder = extend(self.model.encoder)
-        #self.model = extend(self.model)
-        self.ema_per_domain = [
-            MovingAverage(ema=self.ema_decay, oneminusema_correction=True)
-            for _ in range(self.num_domains)
-        ]
-        for name, m in self.model.decoder.named_modules():
-            if isinstance(m, nn.Linear):
-                print(f"  {name}: {m}")    
-        self.bce_extended = extend(nn.CrossEntropyLoss(reduction='none'))
+        # #extend_all(self.model.decoder)
+        # extend_all(self.model.encoder)
+        # #self.model = extend(self.model)
+        # self.ema_per_domain = [
+        #     MovingAverage(ema=self.ema_decay, oneminusema_correction=True)
+        #     for _ in range(self.num_domains)
+        # ]
+        # for name, m in self.model.encoder.named_modules():
+        #     if isinstance(m, nn.Linear):
+        #         print(f"  {name}: {m}")    
+        # self.bce_extended = extend(nn.MSELoss(reduction='none'))
         self.update_count = 0
         self.domain_list = args.domain_list
         print(self.domain_list)
@@ -135,11 +135,50 @@ class SWINJSCCTrainer(BaseTrainer):
             torch.cat(tuple([t.view(-1) for t in dict_2_values]))
         ).pow(2).mean()
 
-    def compute_fishr_penalty(self, all_logits, all_y, len_minibatches):
-        dict_grads = self._get_grads(all_logits, all_y)
-        grads_var_per_domain = self._get_grads_var_per_domain(dict_grads, len_minibatches)
-        return self._compute_distance_grads_var(grads_var_per_domain)
+    def compute_fishr_penalty(self, all_out, all_in, len_minibatches):
+        grads = []
+        idx = 0
 
+    # 1) Chia theo từng domain
+        for bsize in len_minibatches:
+            rec_d = all_out[idx: idx + bsize]
+            inp_d = all_in[idx:  idx + bsize]
+            idx  += bsize
+
+        # Zero gradient cũ
+            self.optimizer.zero_grad()
+
+        # Tính loss mean trên domain
+            loss_d = self.criterion(rec_d, inp_d)
+
+        # 2) Lấy gradient trung bình mỗi domain mà không free graph
+            grad_list = torch.autograd.grad(
+                loss_d,
+                list(self.model.parameters()),
+                retain_graph=True,
+                create_graph=True,
+                allow_unused=True,        # cho phép param không tham gia graph
+            )
+
+        # 3) Thay None thành zero và flatten
+            flat = []
+            for g, p in zip(grad_list, self.model.parameters()):
+                if g is None:
+                    flat.append(torch.zeros_like(p).view(-1))
+                else:
+                    flat.append(g.contiguous().view(-1))
+            grads.append(torch.cat(flat))
+
+    # Cleanup
+        self.optimizer.zero_grad()
+
+    # 4) Stack và tính penalty Fishr‐approx
+        G      = torch.stack(grads, dim=0)       # [D, P]
+        mean_G = G.mean(dim=0, keepdim=True)     # [1, P]
+        penalty = ((G - mean_G).pow(2).mean())   # scalar
+
+        return penalty
+    
     def _get_grads(self, logits,y):
         self.optimizer.zero_grad()
         loss = self.bce_extended(logits, y).sum()
@@ -154,10 +193,10 @@ class SWINJSCCTrainer(BaseTrainer):
         # compute individual grads for all samples across all domains simultaneously
         dict_grads = OrderedDict()
         for name, weights in self.model.decoder.named_parameters():
-                    if hasattr(weights, "grad_batch"):
-                        dict_grads[name] = weights.grad_batch.clone().view(weights.grad_batch.size(0), -1)
-                    else:
-                         print(f"[❗WARN] {name} has not been extended! → Có thể gây lỗi `grad_batch`.")    
+            if hasattr(weights, "grad_batch"):
+                dict_grads[name] = weights.grad_batch.clone().view(weights.grad_batch.size(0), -1)
+            else:
+                print(f"[❗WARN] {name} has not been extended! → Có thể gây lỗi `grad_batch`.")    
                 
             
         

@@ -1,6 +1,7 @@
 from modules.swinjscc_module import * 
 import torch
-
+# from backpack import backpack, extend
+# from backpack.extensions import BatchGrad
 class SwinTransformerBlock(nn.Module):
 
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0,
@@ -246,7 +247,11 @@ class SwinJSCC_Encoder(nn.Module):
                                downsample=PatchMerging if i_layer != 0 else None)
 
             self.layers.append(layer) # thêm các stage  vào list
+        # for layer in self.layers:
+        #     for m in layer.modules():
+        #         extend(m)
         self.norm = norm_layer(embed_dims[-1]) # LayerNorm. số chiều stage cuối 
+       
         if C != None: # nếu không dùng Rate Modnet 
             self.head_list = nn.Linear(embed_dims[-1], C)  
         self.apply(self._init_weights)
@@ -262,7 +267,7 @@ class SwinJSCC_Encoder(nn.Module):
             self.bm_list.append(AdaptiveModulator(self.hidden_dim))
             self.sm_list.append(nn.Linear(self.hidden_dim, outdim))
         self.sigmoid = nn.Sigmoid()
-
+        #self.bm_list = extend(self.bm_list)
         self.bm_list1 = nn.ModuleList()
         self.sm_list1 = nn.ModuleList()
         self.sm_list1.append(nn.Linear(self.embed_dims[len(embed_dims) - 1], self.hidden_dim))
@@ -331,99 +336,6 @@ class SwinJSCC_Encoder(nn.Module):
         mask = mask.to(x.device)  # Chuyển mask về cùng thiết bị với x
         x = x * mask
         return x, mask
-
-
-
-        # if model == 'SwinJSCC_w/o_SAandRA':
-        #     x = self.head_list(x)
-        #     return x
-
-        # elif model == 'SwinJSCC_w/_SA':
-        #     snr_cuda = torch.tensor(snr, dtype=torch.float).to(device) # đưa SNR thành tensor gửi lên device 
-        #     snr_batch = snr_cuda.unsqueeze(0).expand(B, -1)  # mở rộng thành (B, snr), tất cả batch có cùng SNR
-        #     for i in range(self.layer_num): # layer_num là stt của SM module 
-        #         if i == 0:
-        #             temp = self.sm_list[i](x.detach()) # x.detach() khong tính toán gradient 
-        #         else:
-        #             temp = self.sm_list[i](temp) # đi qua từng lớp FC, SM 
-
-        #         bm = self.bm_list[i](snr_batch).unsqueeze(1).expand(-1, H * W // (self.num_layers ** 4), -1)
-        #         # Thêm một chiều vào vị trí 1 -> B,1,hidden_dim và vị trí 1 kia thay thành H*W/(num_layers^4)
-        #         # nếu qua cả 4 stage rồi thì là H*W/16*16 hay H/16 * W/16 hợp lý 
-        #         temp = temp * bm
-        #     mod_val = self.sigmoid(self.sm_list[-1](temp))#cuối cùng trong sm_list là FC|N x Ci 
-        #     x = x * mod_val # 
-        #     x = self.head_list(x)
-        #     return x
-        # #RA: các khối FC bên ngoài thì vẫn vậy chỉ khác khối SM trong bm thì thay thành RM vẫn tương tự cấu trúc
-        # # chỉ khác đầu vào là R không phải SNR
-        # elif model == 'SwinJSCC_w/_RA':
-        #     rate_cuda = torch.tensor(rate, dtype=torch.float).to(device)
-        #     rate_batch = rate_cuda.unsqueeze(0).expand(B, -1)
-        #     for i in range(self.layer_num):
-        #         if i == 0:
-        #             temp = self.sm_list[i](x.detach())
-        #         else:
-        #             temp = self.sm_list[i](temp) 
-
-        #         bm = self.bm_list[i](rate_batch).unsqueeze(1).expand(-1, H * W // (self.num_layers ** 4), -1)
-        #         temp = temp * bm # temp(B, num_patches(H*W//num_layer ** 4), out_dim)
-        #     mod_val = self.sigmoid(self.sm_list[-1](temp))
-        #     x = x * mod_val
-        #     mask = torch.sum(mod_val, dim=1) # tính tổng theo num_patches -> mask (B,C)
-        #     sorted, indices = mask.sort(dim=1, descending=True) 
-        #     # sắp xếp thứ tự giảm dần độ quan trọng của chiều channel để chọn xem mask channel nào  
-        #     c_indices = indices[:, :rate] 
-        #     # lấy vị trí rate(C4/C_in) kênh quan trọng nhất với C4 lấy từ embed_dims 
-        #     add = torch.Tensor(range(0, B * x.size()[2], x.size()[2])).unsqueeze(1).repeat(1, rate)
-        #     # x đã qua Layer rồi nên thành tensỏr 3 chiều (B, num_patches, out_dim)
-        #     # Chuyển thành tensor từ range [0, C , 2C,... BxC] với kích thước là (B, rate)
-        #     c_indices = c_indices + add.int().cuda() 
-        #     mask = torch.zeros(mask.size()).reshape(-1).cuda() # mask toàn 0, một chiều(reshape(-1) tự tính toán chiều còn lại)
-        #     mask[c_indices.reshape(-1)] = 1 # Những kênh được chọn thì thành 1
-        #     mask = mask.reshape(B, x.size()[2]) # Chuyển lại về BxC (out_dim)
-        #     mask = mask.unsqueeze(1).expand(-1, H * W // (self.num_layers ** 4), -1) # B, num_patches, out_dim
-        #     x = x * mask
-        #     return x, mask
-
-        # elif model == 'SwinJSCC_w/_SAandRA':
-        #     snr_cuda = torch.tensor(snr, dtype=torch.float).to(device)
-        #     rate_cuda = torch.tensor(rate, dtype=torch.float).to(device)
-        #     snr_batch = snr_cuda.unsqueeze(0).expand(B, -1)
-        #     rate_batch = rate_cuda.unsqueeze(0).expand(B, -1)
-        #     for i in range(self.layer_num):
-        #         if i == 0:
-        #             temp = self.sm_list1[i](x.detach())
-        #         else:
-        #             temp = self.sm_list1[i](temp)
-
-        #         bm = self.bm_list1[i](snr_batch).unsqueeze(1).expand(-1, H * W // (self.num_layers ** 4), -1)
-        #         temp = temp * bm
-        #     mod_val1 = self.sigmoid1(self.sm_list1[-1](temp))
-        #     x = x * mod_val1
-
-        #     for i in range(self.layer_num):
-        #         if i == 0:
-        #             temp = self.sm_list[i](x.detach())
-        #         else:
-        #             temp = self.sm_list[i](temp)
-
-        #         bm = self.bm_list[i](rate_batch).unsqueeze(1).expand(-1, H * W // (self.num_layers ** 4), -1)
-        #         temp = temp * bm
-        #     mod_val = self.sigmoid(self.sm_list[-1](temp)) #
-        #     x = x * mod_val
-        #     mask = torch.sum(mod_val, dim=1)
-        #     sorted, indices = mask.sort(dim=1, descending=True)
-        #     c_indices = indices[:, :rate]
-        #     add = torch.Tensor(range(0, B * x.size()[2], x.size()[2])).unsqueeze(1).repeat(1, rate)
-        #     c_indices = c_indices + add.int().cuda()
-        #     mask = torch.zeros(mask.size()).reshape(-1).cuda()
-        #     mask[c_indices.reshape(-1)] = 1
-        #     mask = mask.reshape(B, x.size()[2])
-        #     mask = mask.unsqueeze(1).expand(-1, H * W // (self.num_layers ** 4), -1)
-
-        #     x = x * mask
-        #     return x, mask
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
