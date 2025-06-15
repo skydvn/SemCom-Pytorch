@@ -7,20 +7,13 @@ from channels.channel_base import Channel
 from models.model_base import BaseModel
 from modules.swinencoder import create_encoder
 from modules.swindecoder import create_decoder
-from collections import OrderedDict
-# try:
-#     from backpack import backpack, extend
-#     from backpack.extensions import BatchGrad
-# except:
-#     backpack = None
-
 # from config import config
 class SWINJSCC(BaseModel):
     def __init__(self, args, in_channel, class_num):
         super(SWINJSCC, self).__init__(args, in_channel, class_num)
         self.args = args
-        # print("sdfdfs", args.ratio)
-        # print("egwreg",args.base_snr)
+        print("sdfdfs", args.ratio)
+        print("egwreg",args.base_snr)
         if isinstance(args.ratio, list):
             raise ValueError(f"args.ratio must be a single value, not a list: {args.ratio}")
         self.squared_difference = torch.nn.MSELoss(reduction='none')
@@ -80,7 +73,7 @@ class SWINJSCC(BaseModel):
         noisy_feature = noisy_feature * mask
         # Decode
         recon_image = self.decoder(noisy_feature, snr_chan)
-
+        print("Hellooo")
         return recon_image, CBR, snr_chan
 
     def get_latent(self, x):
@@ -110,6 +103,7 @@ class SWINJSCC(BaseModel):
         z_out = div * sqrt1
 
         return z_out
+
     def change_channel(self, channel_type='AWGN', snr=None):
         if snr is None:
             self.channel = None
@@ -120,7 +114,6 @@ class SWINJSCC(BaseModel):
         if hasattr(self, 'channel') and self.channel is not None:
             return self.channel.get_channel()
         return None
-    
     def channel_perturb(self, input_image, chan_type, snr_chan):
         B, _, H, W = input_image.shape
 
@@ -130,7 +123,7 @@ class SWINJSCC(BaseModel):
             self.H = H
             self.W = W
         feature, mask = self.encoder(input_image, snr_chan, self.channel_number)
-        #print("Featureeee", feature)
+
         # CBR = self.channel_number / (2 * 3 * 2 ** (self.downsample * 2))
         # avg_pwr = torch.sum(feature ** 2) / mask.sum()
 

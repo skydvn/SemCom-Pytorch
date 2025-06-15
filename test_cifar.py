@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.swinjscc import SWINJSCC
+from models.swinjscc_fishr import SWINJSCC
 from models.dgsc import DGSC_CIFAR
 from models.djsccn import DJSCCN_CIFAR
 from dataset.getds import get_cifar10  # Import hàm lấy dataset

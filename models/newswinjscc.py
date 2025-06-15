@@ -8,9 +8,11 @@ from models.model_base import BaseModel
 from modules.swinencoder import create_encoder
 from modules.swindecoder import create_decoder
 # from config import config
-class SWINJSCC(BaseModel):
+
+"""Dung kenh trong code goc chuwa ghep vao he thong cua minh """
+class NEWSWINJSCC(BaseModel):
     def __init__(self, args, in_channel, class_num):
-        super(SWINJSCC, self).__init__(args, in_channel, class_num)
+        super(NEWSWINJSCC, self).__init__(args, in_channel, class_num)
         self.args = args
         print("sdfdfs", args.ratio)
         print("egwreg",args.base_snr)

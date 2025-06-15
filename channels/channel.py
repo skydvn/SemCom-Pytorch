@@ -18,7 +18,7 @@ class Channel(nn.Module):
                             + torch.randn(1) ** 2) / 1.414 # tạo hệ số  kênh h với công suất = 1 (sqrt(x^2+y^2)/sqrt(2) = 1)
 
     def gaussian_noise_layer(self, input_layer, std, name=None):
-        print("Awgnn")
+        
         device = input_layer.get_device()
         noise_real = torch.normal(mean=0.0, std=std, size=np.shape(input_layer), device=device)
         noise_imag = torch.normal(mean=0.0, std=std, size=np.shape(input_layer), device=device)

@@ -44,11 +44,8 @@ class BaseTrainer:
         domain_str = ''.join(getattr(self, 'domain_list', [])) 
         
         # Tạo tên phaser với định dạng thời gian 17h04m29s_on_Jun_06_2025
-        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')
-        if self.args.algo == "swinjscc":
-            phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
-        else:
-            phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
+        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')    
+        phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
 
         self.root_ckpt_dir = os.path.join(out_dir, 'checkpoints', phaser)
         self.root_log_dir = os.path.join(out_dir, 'logs', phaser)
@@ -102,12 +99,12 @@ class BaseTrainer:
                     outputs = model_out[0]  # recon_image
                 else:
                     outputs = model_out
-                if self.args.algo == 'swinjscc' and self.args.train_flag == 'False':
+                if self.args.algo == 'swinjscc' or self.args.algo =='fishr' or self.args.algo  == 'newswin' and self.args.train_flag == 'False':
                     outputs = image_normalization('denormalization')(outputs)
                     images = image_normalization('denormalization')(images)
                     #loss = F.mse_loss(images, outputs) if not self.parallel else F.mse_loss(images, outputs)
                     loss = self.criterion(images, outputs) if not self.parallel else self.criterion(images, outputs)
-                if self.args.algo == 'swinjscc' :
+                if self.args.algo == 'swinjscc' or self.args.algo == 'fishr' or self.args.algo =='newswin':
                     loss = self.criterion(images, outputs) if not self.parallel else self.criterion(
                     images, outputs)
                 else:

@@ -192,13 +192,17 @@ import argparse
 from train.train_djsccn import DJSCCNTrainer
 from train.train_djsccf import DJSCCFTrainer
 from train.train_dgsc import DGSCTrainer
-from train.train_swindjscc import SWINJSCCTrainer
+from train.train_swinjscc import SWINJSCCTrainer
+from train.train_newswinjscc import NEWSWINJSCCTrainer
+from train.train_swinjscc_fishr import SWINJSCC_FISHRTrainer  
 from torch import nn
 trainer_map = {
     "djsccf": DJSCCFTrainer,
     "djsccn": DJSCCNTrainer,
     "swinjscc": SWINJSCCTrainer,
-    "dgsc": DGSCTrainer
+    "dgsc": DGSCTrainer,
+    "fishr": SWINJSCC_FISHRTrainer,
+    "newswin": NEWSWINJSCCTrainer
     }
 
 ratio_list = [1/6]
@@ -293,7 +297,7 @@ if __name__ == "__main__":
         raise ValueError("Invalid trainer")
     
     TrainerClass = trainer_map[args.algo]
-    if args.algo == "swinjscc":
+    if args.algo == "swinjscc" or args.algo =='fishr' or args.algo =='newswin':
         args.snr_list = snr_list
         args.ratio = ratio_list
         args.pass_channel = True

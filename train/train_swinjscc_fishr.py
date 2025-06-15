@@ -9,14 +9,14 @@ from torch import nn
 from torch.optim import Adam
 
 from train.train_base import BaseTrainer
-from models.swinjscc import *
+from models.swinjscc_fishr import *
 from modules.distortion import Distortion
 
 import torch
 from torch.optim import Adam
 from tqdm import tqdm
 
-from models.swinjscc import SWINJSCC
+from models.swinjscc_fishr import SWINJSCC_FISHR
 from collections import OrderedDict
 
 from backpack import backpack, extend
@@ -24,17 +24,14 @@ from backpack.extensions import BatchGrad
 
 
 
-def extend_all(module):
-    extend(module)
-    for child in module.children():
-        extend_all(child)
-class SWINJSCCTrainer(BaseTrainer):
+
+class SWINJSCC_FISHRTrainer(BaseTrainer):
     
     def __init__(self, args):
         super().__init__(args)
         # Khởi tạo model SwinJSCC với args
-        self.model = SWINJSCC(args, self.in_channel, self.class_num).to(self.device)
-        extend_all(self.model.decoder)
+        self.model = SWINJSCC_FISHR(args, self.in_channel, self.class_num).to(self.device)
+       
 
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
         self.criterion = nn.MSELoss(reduction='mean')  
@@ -88,12 +85,12 @@ class SWINJSCCTrainer(BaseTrainer):
                 penalty = self.compute_fishr_penalty(all_out, all_in, len_minibatches)
                 loss = self.criterion(all_out, all_in) # la so thuc nen phai dung mse khong dung cross entropy 
                 penalty_weight = 0.1 
-                # if self.update_count >= self.penalty_anneal_iters:
-                #     penalty_weight = self.penalty_weight 
-                # if self.update_count == self.penalty_anneal_iters != 0:
-                # # Reset Adam as in IRM or V-REx, because it may not like the sharp jump in
-                # # gradient magnitudes that happens at this step.
-                #     penalty_weight = 0
+                if self.update_count >= self.penalty_anneal_iters:
+                    penalty_weight = self.penalty_weight 
+                if self.update_count == self.penalty_anneal_iters != 0:
+                # Reset Adam as in IRM or V-REx, because it may not like the sharp jump in
+                # gradient magnitudes that happens at this step.
+                    penalty_weight = 0
                 self.update_count += 1
 
                 objective = loss + penalty_weight * penalty
@@ -114,7 +111,7 @@ class SWINJSCCTrainer(BaseTrainer):
                 for test_imgs, test_labels in tqdm(self.test_dl):
                     test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
                     self.model.change_channel(channel_type = 'Rayleigh', snr = 13)
-                    test_rec,_,_ = self.model.forward(test_imgs,snr)
+                    test_rec = self.model.forward(test_imgs,snr)
                     loss = self.criterion(test_imgs, test_rec)
                     epoch_val_loss += loss.detach().item()
                 epoch_val_loss /= len(self.test_dl)
