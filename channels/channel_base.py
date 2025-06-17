@@ -12,7 +12,7 @@ class Channel(nn.Module):
 
     def forward(self, z_hat):
         # print("sdf of channel ",self.snr)
-        # print("dsfw of channel",self.channel_type)
+        #print("dsfw of channel",self.channel_type)
         if z_hat.dim() not in {3, 4}:
             raise ValueError('Input tensor must be 3D or 4D')
 

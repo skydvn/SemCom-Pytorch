@@ -66,9 +66,10 @@ class SWINJSCC_FISHRTrainer(BaseTrainer):
 
             epoch_loss = 0
             epoch_val_loss = 0
+            total_loss = 0
             for batch_idx, (x, y) in enumerate(tqdm(self.train_dl, desc=f"Epoch {epoch}")): 
                 x, y = x.to(self.device), y.to(self.device)
-                total_loss = 0
+                
                 all_in = []
                 all_out = []
                 len_minibatches = []
@@ -87,7 +88,7 @@ class SWINJSCC_FISHRTrainer(BaseTrainer):
                 penalty_weight = 0.1 
                 if self.update_count >= self.penalty_anneal_iters:
                     penalty_weight = self.penalty_weight 
-                if self.update_count == self.penalty_anneal_iters != 0:
+                if self.update_count < self.penalty_anneal_iters:
                 # Reset Adam as in IRM or V-REx, because it may not like the sharp jump in
                 # gradient magnitudes that happens at this step.
                     penalty_weight = 0
@@ -175,101 +176,4 @@ class SWINJSCC_FISHRTrainer(BaseTrainer):
         penalty = ((G - mean_G).pow(2).mean())   # scalar
 
         return penalty
-    
-    def _get_grads(self, logits,y):
-        self.optimizer.zero_grad()
-        loss = self.bce_extended(logits, y).sum()
-        for name, weights in self.model.decoder.named_parameters():
-            if not hasattr(weights, 'grad_batch'):
-                print(f"[WARN] {name} has not been extended!")
-        with backpack(BatchGrad()):
-            loss.backward(
-                inputs=list(self.model.decoder.parameters()), retain_graph=True, create_graph=True
-            )
-
-        # compute individual grads for all samples across all domains simultaneously
-        dict_grads = OrderedDict()
-        for name, weights in self.model.decoder.named_parameters():
-            if hasattr(weights, "grad_batch"):
-                dict_grads[name] = weights.grad_batch.clone().view(weights.grad_batch.size(0), -1)
-            else:
-                print(f"[❗WARN] {name} has not been extended! → Có thể gây lỗi `grad_batch`.")    
-                
-            
-        
-        return dict_grads
-
-    def _get_grads_var_per_domain(self, dict_grads, len_minibatches):
-        # grads var per domain
-        grads_var_per_domain = [{} for _ in range(self.num_domains)]
-        for name, _grads in dict_grads.items():
-            all_idx = 0
-            for domain_id, bsize in enumerate(len_minibatches):
-                env_grads = _grads[all_idx:all_idx + bsize]
-                all_idx += bsize
-                env_mean = env_grads.mean(dim=0, keepdim=True)
-                env_grads_centered = env_grads - env_mean
-                grads_var_per_domain[domain_id][name] = (env_grads_centered).pow(2).mean(dim=0)
-
-        # moving average
-        for domain_id in range(self.num_domains):
-            grads_var_per_domain[domain_id] = self.ema_per_domain[domain_id].update(
-                grads_var_per_domain[domain_id]
-            )
-
-        return grads_var_per_domain
-
-    def _compute_distance_grads_var(self, grads_var_per_domain):
-
-        # compute gradient variances averaged across domains
-        grads_var = OrderedDict(
-            [
-                (
-                    name,
-                    torch.stack(
-                        [
-                            grads_var_per_domain[domain_id][name]
-                            for domain_id in range(self.num_domains)
-                        ],
-                        dim=0
-                    ).mean(dim=0)
-                )
-                for name in grads_var_per_domain[0].keys()
-            ]
-        )
-
-        penalty = 0
-        for domain_id in range(self.num_domains):
-            penalty += self.l2_between_dicts(grads_var_per_domain[domain_id], grads_var)
-        return penalty / self.num_domains
-    
-
-class MovingAverage:
-
-    def __init__(self, ema, oneminusema_correction=True):
-        self.ema = ema
-        self.ema_data = {}
-        self._updates = 0
-        self._oneminusema_correction = oneminusema_correction
-
-    def update(self, dict_data):
-        ema_dict_data = {}
-        for name, data in dict_data.items():
-            data = data.view(1, -1)
-            if self._updates == 0:
-                previous_data = torch.zeros_like(data)
-            else:
-                previous_data = self.ema_data[name]
-
-            ema_data = self.ema * previous_data + (1 - self.ema) * data
-            if self._oneminusema_correction:
-                # correction by 1/(1 - self.ema)
-                # so that the gradients amplitude backpropagated in data is independent of self.ema
-                ema_dict_data[name] = ema_data / (1 - self.ema)
-            else:
-                ema_dict_data[name] = ema_data
-            self.ema_data[name] = ema_data.clone().detach()
-
-        self._updates += 1
-        return ema_dict_data
 

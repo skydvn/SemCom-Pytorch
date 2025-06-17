@@ -1,0 +1,107 @@
+dataset_name: cifar10
+domain_list: &id001
+- AWGN10
+params:
+  algo: swinjscc
+  base_snr: 13
+  bs: 128
+  channel_number: 32
+  channel_type: AWGN
+  cls_coeff: 0.5
+  clsl: ce
+  decoder_kwargs:
+    C: 32
+    depths:
+    - 4
+    - 2
+    embed_dims:
+    - 128
+    - 64
+    img_size: !!python/tuple
+    - 32
+    - 32
+    mlp_ratio: 4.0
+    norm_layer: &id002 !!python/name:torch.nn.modules.normalization.LayerNorm ''
+    num_heads:
+    - 8
+    - 4
+    patch_norm: true
+    qk_scale: null
+    qkv_bias: true
+    window_size: 2
+  device: true
+  disl: kl
+  domain_list: *id001
+  downsample: 2
+  ds: cifar10
+  dv: 0
+  encoder_kwargs:
+    C: 32
+    depths:
+    - 2
+    - 4
+    embed_dims:
+    - 64
+    - 128
+    img_size: !!python/tuple
+    - 32
+    - 32
+    in_chans: 3
+    mlp_ratio: 4.0
+    norm_layer: *id002
+    num_heads:
+    - 4
+    - 8
+    patch_norm: true
+    patch_size: 2
+    qk_scale: null
+    qkv_bias: true
+    window_size: 2
+  image_dims: !!python/tuple
+  - 3
+  - 32
+  - 32
+  inv_cdim: 32
+  inv_coeff: 0.2
+  kld_coeff: 0.00025
+  log: false
+  lr: 0.0001
+  num_channels: 16
+  num_conv_blocks: 2
+  num_iter: 10
+  num_res_blocks: 2
+  operator: window
+  out: ./out
+  out_e: 50
+  pass_channel: true
+  ratio: 0.16666666666666666
+  rec_coeff: 1
+  recl: mse
+  snr_list:
+  - 13
+  train_flag: 'True'
+  vae: false
+  var_cdim: 32
+  var_coeff: 0.2
+  verbose: false
+  wandb: false
+  wandb_entity: scalemind
+  wandb_prj: SemCom-
+  wk: 32
+total_parameters: !!python/object/apply:numpy.core.multiarray.scalar
+- !!python/object/apply:numpy.dtype
+  args:
+  - i4
+  - false
+  - true
+  state: !!python/tuple
+  - 3
+  - <
+  - null
+  - null
+  - null
+  - -1
+  - -1
+  - 0
+- !!binary |
+  cL9AAA==

@@ -179,8 +179,8 @@ class SWINJSCC_FISHR(BaseModel):
     def __init__(self, args, in_channel, class_num):
         super(SWINJSCC_FISHR, self).__init__(args, in_channel, class_num)
         self.args = args
-        print("sdfdfs", args.ratio)
-        print("egwreg",args.base_snr)
+        # print("sdfdfs", args.ratio)
+        # print("egwreg",args.base_snr)
         if isinstance(args.ratio, list):
             raise ValueError(f"args.ratio must be a single value, not a list: {args.ratio}")
         self.squared_difference = torch.nn.MSELoss(reduction='none')

@@ -44,8 +44,11 @@ class BaseTrainer:
         domain_str = ''.join(getattr(self, 'domain_list', [])) 
         
         # Tạo tên phaser với định dạng thời gian 17h04m29s_on_Jun_06_2025
-        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')    
-        phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
+        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')   
+        if self.args.algo == 'swinjscc':
+            phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{self.args.channel_type}{self.args.base_snr}_{self.args.algo}_{timestamp}"
+        else :
+            phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
 
         self.root_ckpt_dir = os.path.join(out_dir, 'checkpoints', phaser)
         self.root_log_dir = os.path.join(out_dir, 'logs', phaser)
@@ -110,7 +113,7 @@ class BaseTrainer:
                 else:
                     outputs = image_normalization('denormalization')(outputs)
                     images = image_normalization('denormalization')(images)
-                    loss = self.criterion(self.args, images, outputs) if not self.parallel else self.criterion(self.args,
+                    loss = self.criterion( images, outputs) if not self.parallel else self.criterion(self.args,
                     images, outputs)
                 epoch_loss += loss.detach().item()
             epoch_loss /= (iter + 1)
