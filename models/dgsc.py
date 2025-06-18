@@ -11,6 +11,7 @@ class DGSC_CIFAR(BaseModel):
     def __init__(self, args, in_channel, class_num):
         super(DGSC_CIFAR, self).__init__(args, in_channel, class_num)
         self.base_snr = args.base_snr 
+        self.channel_type = args.channel_type 
         print(self.base_snr)
         self.encoder = nn.Sequential(
             nn.Conv2d(self.in_channel, 32, kernel_size=3, stride=2, padding=1),
@@ -49,9 +50,10 @@ class DGSC_CIFAR(BaseModel):
             nn.SELU(),
         )
 
-    def forward(self, x):
+    def forward(self, x,snr_chan):
         enc = self.encoder(x)
         enc = self.normalize_layer(enc)
+        self.change_channel(channel_type=self.channel_type,snr = snr_chan)
         if self.channel is None:
             print("No Channel")
             #print("Channel is: ", self.channel.get_channel())
@@ -64,24 +66,6 @@ class DGSC_CIFAR(BaseModel):
         enc = self.normalize_layer(enc)
         return enc
 
-    # def get_semcom_recon(self, x, n_var, channel, device):
-    #     enc = self.encoder(x)
-    #     enc = self.normalize_layer(enc)
-    #     """ Generate Propagating Noise"""
-    #     if channel == "Gaussian":
-    #         pass
-    #     elif channel == "Rayleigh":
-    #         pass
-    #     elif channel == "Rician":
-    #         pass
-    #     noise = torch.normal(mean=torch.zeros(enc.size()),
-    #                          std=torch.ones(enc.size()) * n_var).to(device)
-    #     """ Simulate a noise by physical channels """
-    #     var = enc + noise
-
-    #     rec = self.decoder(var)
-    #     # print(f"ori: {F.mse_loss(x, rec)}")
-    #     return rec
 
     def get_latent_size(self, x):
         enc = self.encoder(x)
@@ -115,7 +99,13 @@ class DGSC_CIFAR(BaseModel):
             return self.channel.get_channel()
         return None 
 
-
+    def channel_perturb(self, x, chan_type, snr_chan):
+        
+        z = self.encoder(x)
+        self.change_channel(channel_type = chan_type, snr = snr_chan)
+        z_after_channel = self.channel(z)
+        rec = self.decoder(z_after_channel)
+        return rec 
 
 
 

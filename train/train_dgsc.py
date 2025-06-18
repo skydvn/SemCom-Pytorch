@@ -285,30 +285,64 @@ class DGSCTrainer(BaseTrainer):
         self.model = DGSC_CIFAR(self.args, self.in_channel,self.class_num).to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.args.lr)
         self.criterion = nn.MSELoss(reduction= 'mean')
-        self.channel_type = args.channel_type 
-        self.snr = args.base_snr
-        self.model.channel = Channel(channel_type = self.channel_type, snr = self.snr)
+        self.penalty_weight = 0.1      
+        self.ema_decay      = 0.9         
+        self.penalty_anneal_iters  = 5
+        self.update_count = 0
+        self.domain_list = args.domain_list
+        print(self.domain_list)
+    def parse_domain(self, domain_str):
+        """Extract channel name and SNR from domain string."""
+        channel_name = ''.join([c for c in domain_str if not c.isdigit()])
+        snr = ''.join([c for c in domain_str if c.isdigit()])
+        return channel_name, int(snr)
+    
     def train(self):
-        domain_list = self.domain_list
-        rec = [ [] for _ in domain_list ]
+        domain_list = self.domain_list 
         for epoch in range(self.args.out_e):
-            epoch_train_loss = 0
-            epoch_val_loss = 0
-            
             self.model.train()
-            for x, y in tqdm(self.train_dl, desc=f"Epoch {epoch}"):
+
+            epoch_loss = 0
+            epoch_val_loss = 0
+            total_loss = 0
+            for batch_idx, (x, y) in enumerate(tqdm(self.train_dl, desc=f"Epoch {epoch}")): 
                 x, y = x.to(self.device), y.to(self.device)
-                rec = self.model(x)
-                loss = self.criterion(x, rec)
                 
+                all_in = []
+                all_out = []
+                len_minibatches = []
+                for i, domain_str in enumerate(domain_list):
+                    channel_type, snr = self.parse_domain(domain_str)
+                    out = self.model.channel_perturb(x, channel_type, snr)
+                    # FIXME the tensors should be flattened later
+                    all_in.append(x)  
+                    all_out.append(out)
+                    len_minibatches.append(x.shape[0])
+
+                all_in = torch.cat(all_in, dim=0)
+                all_out = torch.cat(all_out, dim=0)
+                penalty = self.compute_fishr_penalty(all_out, all_in, len_minibatches)
+                loss = self.criterion(all_out, all_in) # la so thuc nen phai dung mse khong dung cross entropy 
+                penalty_weight = 0.1 
+                if self.update_count >= self.penalty_anneal_iters:
+                    penalty_weight = self.penalty_weight 
+                if self.update_count < self.penalty_anneal_iters:
+                # Reset Adam as in IRM or V-REx, because it may not like the sharp jump in
+                # gradient magnitudes that happens at this step.
+                    penalty_weight = 0
+                self.update_count += 1
+
+                objective = loss + penalty_weight * penalty
                 self.optimizer.zero_grad()
-                loss.backward()
+                objective.backward()
                 self.optimizer.step()
 
-                epoch_train_loss += loss.detach().item()
-            epoch_train_loss /= (len(self.train_dl))
-            print(f"[Train] Epoch: Loss = {epoch_train_loss}")
-            self.writer.add_scalar('train/_loss', epoch_train_loss, epoch)
+                #return {'loss': objective.item(), 'nll': loss.item(), 'penalty': penalty.item()}
+                # Backward
+                total_loss += objective.item()
+            avg_loss = total_loss / len(self.train_dl)
+            self.writer.add_scalar('train/loss', avg_loss, epoch)
+            print(f"[Train] Epoch {epoch}: loss = {avg_loss:.4f}")
 
             # self.model.eval()
             # with torch.no_grad():
@@ -339,3 +373,47 @@ class DGSCTrainer(BaseTrainer):
             out = self.model.channel_perturb(x, domain_str)
             rec[i].append(out)
         print(f"rec: {rec[0].shape}") 
+
+    def compute_fishr_penalty(self, all_out, all_in, len_minibatches):
+        grads = []
+        idx = 0
+
+    # 1) Chia theo từng domain
+        for bsize in len_minibatches:
+            rec_d = all_out[idx: idx + bsize]
+            inp_d = all_in[idx:  idx + bsize]
+            idx  += bsize
+
+        # Zero gradient cũ
+            self.optimizer.zero_grad()
+
+        # Tính loss mean trên domain
+            loss_d = self.criterion(rec_d, inp_d)
+
+        # 2) Lấy gradient trung bình mỗi domain mà không free graph
+            grad_list = torch.autograd.grad(
+                loss_d,
+                list(self.model.parameters()),
+                retain_graph=True,
+                create_graph=True,
+                allow_unused=True,        # cho phép param không tham gia graph
+            )
+
+        # 3) Thay None thành zero và flatten
+            flat = []
+            for g, p in zip(grad_list, self.model.parameters()):
+                if g is None:
+                    flat.append(torch.zeros_like(p).view(-1))
+                else:
+                    flat.append(g.contiguous().view(-1))
+            grads.append(torch.cat(flat))
+
+    # Cleanup
+        self.optimizer.zero_grad()
+
+    # 4) Stack và tính penalty Fishr‐approx
+        G      = torch.stack(grads, dim=0)       # [D, P]
+        mean_G = G.mean(dim=0, keepdim=True)     # [1, P]
+        penalty = ((G - mean_G).pow(2).mean())   # scalar
+
+        return penalty

@@ -114,11 +114,11 @@ class SWINJSCCTrainer(BaseTrainer):
         self.model = SWINJSCC(args, self.in_channel, self.class_num).to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
         self.criterion = nn.MSELoss(reduction='mean')
-        self.base_snr = 12
+        self.base_snr = int(args.base_snr)
         self.channel_type = args.channel_type 
 
     def train(self):
-        for epoch in range(self.args.out_e):
+        for epoch in range(self.args.out_e): 
             self.model.train()
             self.model.channel = Channel(channel_type=self.channel_type, snr=self.base_snr)
             total_loss = 0.0

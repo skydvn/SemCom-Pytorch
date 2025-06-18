@@ -35,21 +35,10 @@ class SWINJSCC_FISHRTrainer(BaseTrainer):
 
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
         self.criterion = nn.MSELoss(reduction='mean')  
-        self.num_domains = 3
+        #self.num_domains = 3
         self.penalty_weight = 0.1      
         self.ema_decay      = 0.9         
         self.penalty_anneal_iters  = 5
-        # #extend_all(self.model.decoder)
-        # extend_all(self.model.encoder)
-        # #self.model = extend(self.model)
-        # self.ema_per_domain = [
-        #     MovingAverage(ema=self.ema_decay, oneminusema_correction=True)
-        #     for _ in range(self.num_domains)
-        # ]
-        # for name, m in self.model.encoder.named_modules():
-        #     if isinstance(m, nn.Linear):
-        #         print(f"  {name}: {m}")    
-        # self.bce_extended = extend(nn.MSELoss(reduction='none'))
         self.update_count = 0
         self.domain_list = args.domain_list
         print(self.domain_list)
@@ -124,14 +113,7 @@ class SWINJSCC_FISHRTrainer(BaseTrainer):
         self.writer.close()
         self.save_config()
 
-    def l2_between_dicts(dict_1, dict_2):
-        assert len(dict_1) == len(dict_2)
-        dict_1_values = [dict_1[key] for key in sorted(dict_1.keys())]
-        dict_2_values = [dict_2[key] for key in sorted(dict_1.keys())]
-        return (
-            torch.cat(tuple([t.view(-1) for t in dict_1_values])) -
-            torch.cat(tuple([t.view(-1) for t in dict_2_values]))
-        ).pow(2).mean()
+    
 
     def compute_fishr_penalty(self, all_out, all_in, len_minibatches):
         grads = []
