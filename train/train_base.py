@@ -105,7 +105,10 @@ class BaseTrainer:
 
                 images = images.cuda() if self.parallel and torch.cuda.device_count(
                 ) > 1 else images.to(self.device)
-                model_out = self.model.forward(images,snr_chan)
+                if self.args.algo == 'swinjscc'  or self.args.algo =='fishr':
+                    model_out = self.model.forward(images,snr_chan)
+                else:
+                    model_out = self.model.forward(images)
                 
                 # Lấy phần tử đầu tiên từ tuple trả về bởi mô hình
                 if isinstance(model_out, tuple):
