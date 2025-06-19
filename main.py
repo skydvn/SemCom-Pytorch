@@ -336,23 +336,23 @@ if __name__ == "__main__":
                 patch_norm=True
             )
 
-    if args.wandb:
+    # if args.wandb:
 
-        domain_str = ''.join(args.domain_list) 
-        # Tạo tên phaser với định dạng thời gian 17h04m29s_on_Jun_06_2025
-        timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')   
-        if args.algo == 'swinjscc':
-            phaser = f"{args.ds.upper()}_{args.ratio}_{args.channel_type}{args.base_snr}_{args.algo}_{timestamp}"
-        else :
-            phaser = f"{args.ds.upper()}_{args.ratio}_{domain_str}_{args.algo}_{timestamp}"
+    #     domain_str = ''.join(args.domain_list) 
+    #     # Tạo tên phaser với định dạng thời gian 17h04m29s_on_Jun_06_2025
+    #     timestamp = time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y')   
+    #     if args.algo == 'swinjscc':
+    #         phaser = f"{args.ds.upper()}_{args.ratio}_{args.channel_type}{args.base_snr}_{args.algo}_{timestamp}"
+    #     else :
+    #         phaser = f"{args.ds.upper()}_{args.ratio}_{domain_str}_{args.algo}_{timestamp}"
 
-        wandb.login(key="b1d6eed8871c7668a889ae74a621b5dbd2f3b070")
-        wandb.init(
-            project="DJSCC",
-            entity="letuanhf-hanoi-university-of-science-and-technology",
-            config=args, 
-            name=f"{args.dataset}_{args.model}_{args.algorithm}_{args.optimizer}_lr{args.local_learning_rate}_{args.note}" if args.note else f"{args.dataset}_{args.model}_{args.algorithm}_{args.optimizer}_lr{args.local_learning_rate}", 
-        )
+    #     wandb.login(key="b1d6eed8871c7668a889ae74a621b5dbd2f3b070")
+    #     wandb.init(
+    #         project="DJSCC",
+    #         entity="letuanhf-hanoi-university-of-science-and-technology",
+    #         config=args, 
+    #         name=f"{args.dataset}_{args.model}_{args.algorithm}_{args.optimizer}_lr{args.local_learning_rate}_{args.note}" if args.note else f"{args.dataset}_{args.model}_{args.algorithm}_{args.optimizer}_lr{args.local_learning_rate}", 
+    #     )
     
     if args.train_flag == "True":
         print("Training mode")

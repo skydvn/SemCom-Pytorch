@@ -51,6 +51,15 @@ class BaseTrainer:
         else :
             phaser = f"{self.args.ds.upper()}_{self.args.ratio}_{domain_str}_{self.args.algo}_{timestamp}"
 
+        if self.args.wandb:
+            wandb.login(key="b1d6eed8871c7668a889ae74a621b5dbd2f3b070")
+            wandb.init(
+                project="DJSCC",
+                entity="letuanhf-hanoi-university-of-science-and-technology",
+                config=self.args, 
+                name=f"{phaser}", 
+            )
+
         self.root_ckpt_dir = os.path.join(out_dir, 'checkpoints', phaser)
         self.root_log_dir = os.path.join(out_dir, 'logs', phaser)
         # lưu .yaml trực tiếp trong out/configs
