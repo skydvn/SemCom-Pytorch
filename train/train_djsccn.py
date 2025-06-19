@@ -2,6 +2,7 @@ from tqdm import tqdm
 import numpy as np
 import os
 import glob
+import wandb
 
 import torch
 from torch import nn
@@ -39,6 +40,8 @@ class DJSCCNTrainer(BaseTrainer):
                 epoch_train_loss += loss.detach().item()
             epoch_train_loss /= (len(self.train_dl))
             self.writer.add_scalar('train/_loss', epoch_train_loss, epoch)
+            if self.args.wandb:
+                wandb.log({'train/loss': epoch_train_loss}, step=epoch)
 
             self.model.eval()
             with torch.no_grad():
@@ -49,6 +52,8 @@ class DJSCCNTrainer(BaseTrainer):
                     epoch_val_loss += loss.detach().item()
                 epoch_val_loss /= (len(self.test_dl))
                 self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
+                if self.args.wandb:
+                    wandb.log({'val/loss': epoch_val_loss}, step=epoch)
 
             # Saving checkpoint
             self.save_model(epoch=epoch, model=self.model)

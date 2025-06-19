@@ -7,6 +7,7 @@ from glob import glob
 import time
 import json
 import yaml
+import wandb
 from tensorboardX import SummaryWriter
 
 import torch
@@ -158,6 +159,8 @@ class BaseTrainer:
             psnr = get_psnr(image=None, gt=None, mse=test_loss)
             print(f"Test Loss: {test_loss} || PSNR: {psnr}")
             writer.add_scalar('psnr', psnr, snr)
+            if self.args.wandb:
+                wandb.log({'psnr': psnr}, step=snr)
 
     def change_channel(self, snr=None):
         if snr is None:

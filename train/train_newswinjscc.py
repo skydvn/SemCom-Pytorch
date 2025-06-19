@@ -3,6 +3,7 @@ import numpy as np
 import os
 import glob
 import time
+import wandb
 
 import torch
 from torch import nn
@@ -66,6 +67,8 @@ class NEWSWINJSCCTrainer(BaseTrainer):
 
             avg_loss = epoch_loss / len(self.train_dl)
             self.writer.add_scalar('train/loss', avg_loss, epoch)
+            if self.args.wandb:
+                wandb.log({'train/loss': avg_loss}, step=epoch)
             print(f"[Train] Epoch {epoch}: loss = {avg_loss:.4f}")
 
             # Validation
@@ -80,6 +83,8 @@ class NEWSWINJSCCTrainer(BaseTrainer):
                 epoch_val_loss /= len(self.test_dl)
                 print(f"[Val] Epoch {epoch}: loss = {epoch_val_loss:.4f}")
                 self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
+                if self.args.wandb:
+                    wandb.log({'val/loss': epoch_val_loss}, step=epoch)
                 #print('Validation Loss:', epoch_val_loss)
             # Lưu checkpoint
             self.save_model(epoch=epoch, model=self.model)

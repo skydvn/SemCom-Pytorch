@@ -1,6 +1,8 @@
 from tqdm import tqdm
 import numpy as np
 import random
+import os
+import wandb
 
 from dataset import *
 from utils.logging import Logging
@@ -38,6 +40,8 @@ class DJSCCFTrainer(BaseTrainer):
             epoch_train_loss /= (len(self.train_dl)) 
             print('Epoch Loss:', epoch_train_loss)
             self.writer.add_scalar('train/_loss', epoch_train_loss, epoch)
+            if self.args.wandb:
+                wandb.log({'train/loss': epoch_train_loss}, step=epoch)
 
             self.model.eval()
             with torch.no_grad():
@@ -50,6 +54,8 @@ class DJSCCFTrainer(BaseTrainer):
                 epoch_val_loss /= (len(self.test_dl))
                 print('Validation Loss:', epoch_val_loss)
                 self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
+                if self.args.wandb:
+                    wandb.log({'val/_loss': epoch_val_loss}, step=epoch)
 
             # Saving checkpoint
             self.save_model(epoch=epoch, model=self.model)
