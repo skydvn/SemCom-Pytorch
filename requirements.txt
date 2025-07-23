@@ -1,0 +1,15 @@
+# PyTorch ecosystem
+torch
+torchvision
+torchaudio
+
+# Visualization and logging
+tensorboardX
+wandb
+matplotlib
+
+# Utility libraries
+timm
+backpack-for-pytorch
+numpy
+tqdm
