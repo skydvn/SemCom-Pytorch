@@ -30,7 +30,7 @@ class DJSCCNTrainer(BaseTrainer):
             self.model.train()
             for x, y in tqdm(self.train_dl):
                 x, y = x.to(self.device), y.to(self.device)
-                rec = self.model(x)
+                rec = self.model(x,self.base_snr)
                 loss = self.criterion.forward(self.args, x, rec)
                 
                 self.optimizer.zero_grad()
@@ -43,17 +43,17 @@ class DJSCCNTrainer(BaseTrainer):
             if self.args.wandb:
                 wandb.log({'train/loss': epoch_train_loss}, step=epoch)
 
-            self.model.eval()
-            with torch.no_grad():
-                for test_imgs, test_labels in tqdm(self.test_dl):
-                    test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
-                    test_rec = self.model.get_train_recon(test_imgs, self.base_snr)
-                    loss = self.criterion.forward(self.args, test_imgs, test_rec)
-                    epoch_val_loss += loss.detach().item()
-                epoch_val_loss /= (len(self.test_dl))
-                self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
-                if self.args.wandb:
-                    wandb.log({'val/loss': epoch_val_loss}, step=epoch)
+            # self.model.eval()
+            # with torch.no_grad():
+            #     for test_imgs, test_labels in tqdm(self.test_dl):
+            #         test_imgs, test_labels = test_imgs.to(self.device), test_labels.to(self.device)
+            #         test_rec = self.model.get_train_recon(test_imgs, self.base_snr)
+            #         loss = self.criterion.forward(self.args, test_imgs, test_rec)
+            #         epoch_val_loss += loss.detach().item()
+            #     epoch_val_loss /= (len(self.test_dl))
+            #     self.writer.add_scalar('val/_loss', epoch_val_loss, epoch)
+            #     if self.args.wandb:
+            #         wandb.log({'val/loss': epoch_val_loss}, step=epoch)
 
             # Saving checkpoint
             self.save_model(epoch=epoch, model=self.model)

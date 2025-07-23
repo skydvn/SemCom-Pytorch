@@ -23,10 +23,6 @@ import argparse
 from train.train_djsccn import DJSCCNTrainer
 from train.train_djsccf import DJSCCFTrainer
 from train.train_dgsc import DGSCTrainer
-from train.train_swinjscc import SWINJSCCTrainer
-from train.train_newswinjscc import NEWSWINJSCCTrainer
-from train.train_swinjscc_fishr import SWINJSCC_FISHRTrainer  
-from models.djsccn import DJSCCN_CIFAR
 from torch import nn
 import torch
 import numpy as np
@@ -37,10 +33,7 @@ import time
 trainer_map = {
     "djsccf": DJSCCFTrainer,
     "djsccn": DJSCCNTrainer,
-    "swinjscc": SWINJSCCTrainer,
     "dgsc": DGSCTrainer,
-    "fishr": SWINJSCC_FISHRTrainer,
-    "newswin": NEWSWINJSCCTrainer
     }
 
 ratio_list = [1/6]
@@ -143,43 +136,6 @@ def encoder_python(image):
     if args.algo not in trainer_map:
         raise ValueError("Invalid trainer")
     
-    TrainerClass = trainer_map[args.algo]
-    if args.algo == "swinjscc" or args.algo =='fishr' or args.algo =='newswin':
-        args.snr_list = snr_list
-        args.ratio = ratio_list
-        args.pass_channel = True
-        if args.ds == 'cifar10':
-            args.image_dims = (3, 32, 32)
-            args.downsample = 2
-            #args.bs = 128
-
-        # Kích thước latent channels
-        args.channel_number = int(args.var_cdim)
-
-        # Unpack spatial dims
-        _, H, W = args.image_dims
-
-        # Thiết lập encoder_kwargs 
-        if args.ds == 'cifar10':
-            args.encoder_kwargs = dict(
-                img_size=(H, W), patch_size=2, in_chans=args.image_dims[0],
-                embed_dims=[64, 128], depths=[2, 4], num_heads=[4, 8],
-                C=args.channel_number,
-                window_size=2, mlp_ratio=4., qkv_bias=True, qk_scale=None,
-                norm_layer=nn.LayerNorm,  # Sử dụng nn.LayerNorm thay vì None
-                patch_norm=True
-            )
-
-        # Thiết lập decoder_kwargs
-            args.decoder_kwargs = dict(
-                img_size=(H, W),
-                embed_dims=[128, 64], depths=[4, 2], num_heads=[8, 4],
-                C=args.channel_number,
-                window_size=2, mlp_ratio=4., qkv_bias=True, qk_scale=None,
-                norm_layer=nn.LayerNorm,  # Sử dụng nn.LayerNorm thay vì None
-                patch_norm=True
-            )
-
     # Khởi tạo trainer cho bất kỳ args.algo nào
     trainer = DJSCCNTrainer(args)
     model = trainer.model
@@ -238,7 +194,7 @@ def decoder_python(encoded_tensor):
         raise ValueError("Invalid trainer")
     
     TrainerClass = trainer_map[args.algo]
-    if args.algo == "swinjscc" or args.algo =='fishr' or args.algo =='newswin':
+    if args.algo != None :
         args.snr_list = snr_list
         args.ratio = ratio_list
         args.pass_channel = True
@@ -253,26 +209,6 @@ def decoder_python(encoded_tensor):
         # Unpack spatial dims
         _, H, W = args.image_dims
 
-        # Thiết lập encoder_kwargs 
-        if args.ds == 'cifar10':
-            args.encoder_kwargs = dict(
-                img_size=(H, W), patch_size=2, in_chans=args.image_dims[0],
-                embed_dims=[64, 128], depths=[2, 4], num_heads=[4, 8],
-                C=args.channel_number,
-                window_size=2, mlp_ratio=4., qkv_bias=True, qk_scale=None,
-                norm_layer=nn.LayerNorm,  # Sử dụng nn.LayerNorm thay vì None
-                patch_norm=True
-            )
-
-        # Thiết lập decoder_kwargs
-            args.decoder_kwargs = dict(
-                img_size=(H, W),
-                embed_dims=[128, 64], depths=[4, 2], num_heads=[8, 4],
-                C=args.channel_number,
-                window_size=2, mlp_ratio=4., qkv_bias=True, qk_scale=None,
-                norm_layer=nn.LayerNorm,  # Sử dụng nn.LayerNorm thay vì None
-                patch_norm=True
-            )
 
     # Khởi tạo trainer cho bất kỳ args.algo nào
     trainer = DJSCCNTrainer(args)

@@ -15,12 +15,13 @@ HISTORY:
 Date      	By	Comments
 ----------	---	---------------------------------------------------------
 '''
-
+import torch
+import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-from lib import *
-
+import matplotlib.pyplot as plt 
+from lib import * 
+from models.djsccn import DJSCCN_CIFAR
 # Define a transformation to convert PIL images to PyTorch tensors (normalized to [0, 1])
 transform = transforms.ToTensor()
 
@@ -31,7 +32,7 @@ train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=Tru
 # Retrieve the first image and its corresponding label from the dataset
 image, label = train_set[0]  # 'image' is a tensor with shape (3, 32, 32)
 
-# Convert the image tensor to a NumPy array and change the channel order to (H, W, C)
+#Convert the image tensor to a NumPy array and change the channel order to (H, W, C)
 input_tensor = image.unsqueeze(0).float()  # shape: [1, 3, 32, 32]
 
 # Hiển thị ảnh
@@ -40,6 +41,19 @@ plt.imshow(image_np)
 plt.title(f"Label: {label}")
 plt.axis("off")
 plt.savefig("input_image.png")
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+checkpoint_path = "C:\SemCom\SemCom_new\SemCom-Pytorch\out\checkpoints\CIFAR10_13_0.16666666666666666_AWGN_dgsc_23h10m22s_on_Jun_02_2025\epoch_99.pkl"
+checkpoint = torch.load(checkpoint_path, map_location=device)
+
+model = DJSCCN_CIFAR(args, 3, 10).to(device)
+
+# Load state_dict into the model
+if "model_state_dict" in checkpoint:
+    model.load_state_dict(checkpoint["model_state_dict"])
+else:
+    model.load_state_dict(checkpoint, strict=False)  
+
 
 # Encode
 encoded_output = encoder_python(input_tensor)

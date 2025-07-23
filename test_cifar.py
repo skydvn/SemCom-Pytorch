@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from models.swinjscc_fishr import SWINJSCC
 from models.dgsc import DGSC_CIFAR
 from models.djsccn import DJSCCN_CIFAR
 from dataset.getds import get_cifar10  # Import hàm lấy dataset
@@ -42,10 +41,10 @@ args = Args()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize the model with only 3 arguments
-model = DGSC_CIFAR(args, 3, 10).to(device)   # 3 channels (RGB), 10 classes (CIFAR-10)
+model = DJSCCN_CIFAR(args, 3, 10).to(device)   # 3 channels (RGB), 10 classes (CIFAR-10)
 
 # Load model from checkpoint
-checkpoint_path = "C:\SemCom\SemCom_new\SemCom-Pytorch\out\checkpoints\CIFAR10_13_0.16666666666666666_AWGN_dgsc_23h10m22s_on_Jun_02_2025\epoch_99.pkl"
+checkpoint_path = "C:\SemCom\SemCom_domain_new\SemCom-Pytorch\out\checkpoints\CIFAR10_0.16666666666666666__djsccn_00h19m44s_on_Jul_23_2025\epoch_199.pkl"
 checkpoint = torch.load(checkpoint_path, map_location=device)
 
 # Kiểm tra nội dung checkpoint
@@ -77,7 +76,7 @@ snr_list = range(0,26,1)
 for snr in range(0, 26, 1):
     model.change_channel(channel_type=args.channel_type, snr=snr)
     #print(f"Chddddannel: {model.get_channel}")
-    recon_image = model.forward(images)
+    recon_image = model.forward(images,25)
     recon = image_normalization('denormalization')(recon_image)
     gt = image_normalization('denormalization')(images)
     loss = criterion(gt, recon) 

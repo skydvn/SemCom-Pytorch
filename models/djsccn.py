@@ -52,12 +52,10 @@ class DJSCCN_CIFAR(BaseModel):
             nn.SELU(),
         )
 
-    def forward(self, x):
+    def forward(self, x,snr_chan):
         z = self.encoder(x)
         z = self.normalize_layer(z)
-        # if self.channel is not None:
-        #     print("Channel is: ", self.channel.get_channel())
-        #     z = self.channel(z)
+        self.change_channel(channel_type=self.channel_type,snr = snr_chan)
         z = self.channel(z)
         x_hat = self.decoder(z)
         return x_hat
