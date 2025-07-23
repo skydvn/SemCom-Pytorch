@@ -164,3 +164,7 @@ runs/
 dataset
 out
 test
+
+# data folder
+data/
+

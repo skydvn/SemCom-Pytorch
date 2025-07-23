@@ -19,6 +19,8 @@ IEEE Transactions on Cognitive Communications and Networking,
 Paper: https://ieeexplore.ieee.org/document/8723589
 
 ```bash
+pip install -r requirements.txt
+
 python main.py --train_flag True
 python main.py --train_flag False
 
