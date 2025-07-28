@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
+from models.swinjscc import SWINJSCC
 from models.dgsc import DGSC_CIFAR
-from models.djsccn import DJSCCN_CIFAR
 from dataset.getds import get_cifar10  # Import hàm lấy dataset
 from channels.channel_base import Channel  # Import lớp Channel
 from utils.data_utils import image_normalization
@@ -15,7 +15,7 @@ class Args:
     ds = "cifar10"  # Dataset name
     snr_list = [10]  # Danh sách SNR
     ratio = 1/6
-    algo = "swinjscc"  # Tên thuật toán
+    #algo = "swinjscc"  # Tên thuật toán
     channel_number = 32
     channel_type = "AWGN"
     image_dims = (3, 32, 32)
@@ -41,10 +41,10 @@ args = Args()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize the model with only 3 arguments
-model = DJSCCN_CIFAR(args, 3, 10).to(device)   # 3 channels (RGB), 10 classes (CIFAR-10)
+model = SWINJSCC(args, 3, 10).to(device)   # 3 channels (RGB), 10 classes (CIFAR-10)
 
 # Load model from checkpoint
-checkpoint_path = "C:\SemCom\SemCom_domain_new\SemCom-Pytorch\out\checkpoints\CIFAR10_0.16666666666666666__djsccn_00h19m44s_on_Jul_23_2025\epoch_199.pkl"
+checkpoint_path = "C:\SemCom\chilinh\SemCom-Pytorch\out\checkpoints\CIFAR10_0.16666666666666666_AWGN13_swinjscc_10h22m43s_on_Jul_28_2025\epoch_29.pkl"
 checkpoint = torch.load(checkpoint_path, map_location=device)
 
 # Kiểm tra nội dung checkpoint
@@ -76,7 +76,7 @@ snr_list = range(0,26,1)
 for snr in range(0, 26, 1):
     model.change_channel(channel_type=args.channel_type, snr=snr)
     #print(f"Chddddannel: {model.get_channel}")
-    recon_image = model.forward(images,25)
+    recon_image = model.forward(images,8.8)
     recon = image_normalization('denormalization')(recon_image)
     gt = image_normalization('denormalization')(images)
     loss = criterion(gt, recon) 
