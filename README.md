@@ -1,7 +1,7 @@
 # Project Setup and Usage Guide
 
 ## 1. Check Python Version
-This project requires **Python 3.8+**.  
+
 Check your version with:
 ```bash
 python --version
@@ -15,12 +15,6 @@ python3 --version
 
 ## 2. Create and Activate a Virtual Environment (venv)
 
-### Windows (Command Prompt or PowerShell)
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
 ### Linux / MacOS
 ```bash
 python3 -m venv venv
@@ -29,49 +23,55 @@ source venv/bin/activate
 
 ---
 
-## 3. Deactivate the Virtual Environment
-```bash
-deactivate
-```
-
----
-
-## 4. Install Required Dependencies
+## 3. Install Required Dependencies
 Install all packages from `requirements.txt`:
 ```bash
-pip install -r requirements.txt
+pip install tqdm
+pip install numpy
+pip install wandb
+pip install torch
+pip install torchvision
+pip install tensorboardX
+pip install tensorboard
+pip install timm
+pip install backpack-for-pytorch
+
+
 ```
 
 ---
 
-## 5. Train the Model
+## 4. Train the Model
 Example:
 ```bash
-python train.py --config configs/train_config.yaml
-```
-Or, depending on your project:
-```bash
-python main.py --mode train
-```
+python main.py --algo swinjscc --train_flag True --channel_type AWGN --lr 0.0001 --out-e 200
 
+```
+Notes:
+
+--algo swinjscc → specifies the algorithm to use (SwinJSCC).
+
+--train_flag True → enables training mode.
+
+--channel_type AWGN → sets the channel type to Additive White Gaussian Noise.
+
+--lr 0.0001 → learning rate.
+
+--out-e 200 → number of output epochs (training runs for 200 epochs).
+The trained model will be saved in: out/checkpoints/
 ---
 
 ## 6. Test the Model
 Example:
 ```bash
-python test.py --model_path saved_models/model.pth
-```
-Or:
-```bash
-python main.py --mode test
+python3 test_cifar.py
 ```
 
 ---
 
-## 7. Notes
-- Always activate the virtual environment before training or testing.
-- If a package is missing, install it manually:
+## 6. Deactivate the Virtual Environment
 ```bash
-pip install <package_name>
+deactivate
 ```
-- It is recommended to use **Python >= 3.8** to avoid compatibility issues.
+
+---
