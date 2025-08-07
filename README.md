@@ -1,26 +1,77 @@
-# SemCom-Pytorch
+# Project Setup and Usage Guide
 
-Re-implementation of those algorithms: 
+## 1. Check Python Version
 
-Neural Joint-Source Channel Coding
-Kristy Choi, Kedar Tatwawadi, Aditya Grover, Tsachy Weissman, Stefano Ermon,
-International Conference on Machine Learning (ICML), 2019. Paper: https://arxiv.org/abs/1811.07557
-
-==========================================================================
-DeepJSCC-f: Deep Joint Source-Channel Coding of Images With Feedback,
-David Burth Kurka; Deniz Gündüz,
-IEEE Journal on Selected Areas in Information Theory.
-Paper: https://ieeexplore.ieee.org/document/9066966
-
-==========================================================================
-Deep Joint Source-Channel Coding for Wireless Image Transmission,
-Eirina Bourtsoulatze; David Burth Kurka; Deniz Gündüz,
-IEEE Transactions on Cognitive Communications and Networking,
-Paper: https://ieeexplore.ieee.org/document/8723589
-
+Check your version with:
 ```bash
-pip install -r requirements.txt
+python --version
+```
+or  
+```bash
+python3 --version
+```
 
-python main.py --train_flag True
-python main.py --train_flag False
+---
 
+## 2. Create and Activate a Virtual Environment (venv)
+
+### Linux / MacOS
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+---
+
+## 3. Install Required Dependencies
+Install all packages from `requirements.txt`:
+```bash
+pip install tqdm
+pip install numpy
+pip install wandb
+pip install torch
+pip install torchvision
+pip install tensorboardX
+pip install tensorboard
+pip install timm
+pip install backpack-for-pytorch
+
+
+```
+
+---
+
+## 4. Train the Model
+Example:
+```bash
+python main.py --algo swinjscc --train_flag True --channel_type AWGN --lr 0.0001 --out-e 200
+
+```
+Notes:
+
+--algo swinjscc → specifies the algorithm to use (SwinJSCC).
+
+--train_flag True → enables training mode.
+
+--channel_type AWGN → sets the channel type to Additive White Gaussian Noise.
+
+--lr 0.0001 → learning rate.
+
+--out-e 200 → number of output epochs (training runs for 200 epochs).
+The trained model will be saved in: out/checkpoints/
+---
+
+## 6. Test the Model
+Example:
+```bash
+python3 test_cifar.py
+```
+
+---
+
+## 6. Deactivate the Virtual Environment
+```bash
+deactivate
+```
+
+---
