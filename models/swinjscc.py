@@ -207,6 +207,21 @@ class SWINJSCC(BaseModel):
 
 
         feature, mask = self.encoder(input_image, snr_chan, self.channel_number)
+        print("Input size:", input_image.size())
+        print("Feature size:", feature.size())
+        print("Mask size:", mask.size())
+
+
+        # Convert tensor to NumPy array
+        np_array = feature.detach().numpy()
+        # Loop over the batch dimension and save each sample
+        for i in range(np_array.shape[0]):  
+            # Ensure it's at least 2-D for savetxt
+            sample_array = np_array[i]
+            if sample_array.ndim == 1:
+                sample_array = sample_array.reshape(1, -1)
+            np.savetxt(f'tensor_{i}.txt', sample_array, fmt="%.6f")
+
 
         # CBR = self.channel_number / (2 * 3 * 2 ** (self.downsample * 2))
         # avg_pwr = torch.sum(feature ** 2) / mask.sum()
@@ -237,7 +252,72 @@ class SWINJSCC(BaseModel):
         recon_image = self.decoder(noisy_feature, snr_chan)
 
         return recon_image
+    
+    # ================================================================================
+    # TODO : Extract encode and decode function
+    def encode_and_save(self, input_image, snr_chan):
+        B, _, H, W = input_image.shape
+        print("Channeadsfadsfalll is", self.get_channel())
 
+        # Cập nhật resolution nếu cần
+        if H != self.H or W != self.W:
+            self.encoder.update_resolution(H, W)
+            self.decoder.update_resolution(H // (2 ** self.downsample),
+                                        W // (2 ** self.downsample))
+            self.H, self.W = H, W
+
+        # Encoder
+        feature, mask = self.encoder(input_image, snr_chan, self.channel_number)
+        print("Input size:", input_image.size())
+        print("Feature size:", feature.size())
+        print("Mask size:", mask.size())
+
+        # Lưu feature ra file txt
+        np_array = feature.detach().numpy()
+        for i in range(np_array.shape[0]):  
+            sample_array = np_array[i]
+            if sample_array.ndim == 1:
+                sample_array = sample_array.reshape(1, -1)
+            np.savetxt(f'tensor_{i}.txt', sample_array, fmt="%.6f")
+
+        return feature, mask
+
+
+    def channel_and_decode(self, feature, mask, input_image, snr_chan):
+        if self.pass_channel:
+            # Convert về 4D
+            B, L, C = feature.shape
+            H_patch = input_image.shape[2] // (2**self.downsample)
+            W_patch = input_image.shape[3] // (2**self.downsample)
+            assert H_patch * W_patch == L, (
+                f"Mismatch tokens: L={L} nhưng H_patch×W_patch="
+                f"{H_patch}×{W_patch}={H_patch*W_patch}"
+            )
+
+            feature_4D = feature.reshape(B, H_patch, W_patch, C).permute(0, 3, 1, 2)
+
+            # Qua channel
+            noisy_feature_4D = self.feature_pass_channel(feature_4D)
+
+            # Convert lại về 3D cho decoder
+            noisy_feature = noisy_feature_4D.flatten(2).permute(0, 2, 1)
+        else:
+            noisy_feature = feature
+
+        # Apply mask
+        noisy_feature = noisy_feature * mask
+
+        # Decode
+        recon_image = self.decoder(noisy_feature, snr_chan)
+        return recon_image
+
+
+    def forward_v2(self, input_image, snr_chan):
+        feature, mask = self.encode_and_save(input_image, snr_chan)
+        recon_image = self.channel_and_decode(feature, mask, input_image, snr_chan)
+        return recon_image
+    
+    # ====================================================================================
 
     def normalize_layer(self, z):
         k = torch.tensor(1.0).to(self.device)  # torch.prod(torch.tensor(z.size()[1:], dtype=torch.float32))

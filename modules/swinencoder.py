@@ -136,7 +136,11 @@ class SwinTransformerBlock(nn.Module):
             mask_windows = mask_windows.view(-1, self.window_size * self.window_size)
             attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
             attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
-            self.attn_mask = attn_mask.cuda()
+            
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.attn_mask = attn_mask.to(device)
+
+            #self.attn_mask = attn_mask.cuda()
         else:
             pass
 
@@ -328,7 +332,7 @@ class SwinJSCC_Encoder(nn.Module):
         # Tạo tensor: [0, C(x), 2C(x), ..., B*C(x)] C(x) là số kênh đầu ra encoder(C2 or C4)
 
         c_indices = c_indices + add.int()
-        mask = torch.zeros(mask.size()).reshape(-1).cuda()
+        mask = torch.zeros(mask.size()).reshape(-1).to(device) #cuda()
         mask[c_indices.reshape(-1)] = 1
         mask = mask.reshape(B, x.size()[2])
         mask = mask.unsqueeze(1).expand(-1, H * W // (self.num_layers ** 4), -1)

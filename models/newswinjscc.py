@@ -118,7 +118,7 @@ class NEWSWINJSCC(BaseModel):
         self.change_channel(channel_type=chan_type, snr =snr_chan)
         avg_pwr = torch.sum(feature ** 2) / mask.sum()
         noisy_feature = self.feature_pass_channel(feature,snr_chan,avg_pwr)
-        noisy_feature = noisy_feature * mask
+        noisy_feature = noisy_ * mask
         # Decode
         recon_image = self.decoder(noisy_feature, snr_chan)
 
