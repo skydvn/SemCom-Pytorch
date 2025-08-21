@@ -167,6 +167,8 @@ from channels.channel_base import Channel
 from models.model_base import BaseModel
 from modules.swinencoder import create_encoder
 from modules.swindecoder import create_decoder
+import matplotlib.pyplot as plt
+
 # from config import config
 class SWINJSCC(BaseModel):
     def __init__(self, args, in_channel, class_num):
@@ -309,6 +311,33 @@ class SWINJSCC(BaseModel):
 
         # Decode
         recon_image = self.decoder(noisy_feature, snr_chan)
+
+        image_plot = recon_image.clamp(0, 1).cpu().detach().squeeze(0).permute(1, 2, 0).numpy()
+        orig_image = input_image.cpu().squeeze(0).permute(1, 2, 0).numpy()
+
+        # plt.figure(figsize=(8,4))
+        # plt.imshow(image_plot)
+        # plt.title(f"Reconstructed (SNR={snr_chan} dB)")
+        # plt.axis("off")
+        # plt.tight_layout()
+        # plt.savefig(f"reconstructed_snr{snr_chan}.png", dpi=300)
+        # plt.close()
+        plt.figure(figsize=(10,4))
+
+        plt.subplot(1,2,1)
+        plt.imshow(orig_image)
+        plt.title("Input")
+        plt.axis("off")
+
+        plt.subplot(1,2,2)
+        plt.imshow(image_plot)
+        plt.title(f"Reconstructed (SNR={snr_chan} dB)")
+        plt.axis("off")
+
+        plt.tight_layout()
+        plt.savefig(f"compare_input_recon_snr{snr_chan}.png", dpi=300)
+        plt.close()
+
         return recon_image
 
 
