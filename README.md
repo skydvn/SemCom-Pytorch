@@ -68,8 +68,26 @@ python3 test_cifar.py
 ```
 
 ---
+## 7. Calling python
+### Install dependencies:
 
-## 6. Deactivate the Virtual Environment
+```bash
+pip install pybind11
+```
+
+### Compile C++ source with embedded Python
+```bash
+g++ -O3 -Wall -std=c++17 -fPIC   $(python3 -m pybind11 --includes)   main.cpp -o main   $(python3-config --ldflags --embed)
+```
+
+### Run
+```bash
+./main
+```
+
+---
+
+## 8. Deactivate the Virtual Environment
 ```bash
 deactivate
 ```
