@@ -249,7 +249,7 @@ class SWINJSCC(BaseModel):
         else:
             noisy_feature = feature
 
-        noisy_feature = noisy_feature * mask
+        #noisy_feature = noisy_feature * mask
         # Decode
         recon_image = self.decoder(noisy_feature, snr_chan)
 
@@ -257,7 +257,20 @@ class SWINJSCC(BaseModel):
     
     # ================================================================================
     # TODO : Extract encode and decode function
-    def encode_and_save(self, input_image, snr_chan):
+    def encode_and_save(self, dec_tensor, snr_chan):
+
+        # Convert back to image (32,32,3)
+        input_image = self.dec_to_image(dec_tensor, size=(32, 32))
+
+        # Normalize [0,1] if input is [0,255]
+        if input_image.max() > 1.0:
+            input_image = input_image / 255.0  
+
+        # (32,32,3) -> (3,32,32) -> (1,3,32,32)
+        input_image = np.transpose(input_image, (2, 0, 1))
+        input_image = torch.from_numpy(input_image).unsqueeze(0).float()
+        print(input_image.min(), input_image.max())
+
         B, _, H, W = input_image.shape
         print("Channeadsfadsfalll is", self.get_channel())
 
@@ -339,6 +352,40 @@ class SWINJSCC(BaseModel):
         plt.close()
 
         return recon_image
+
+    def dec_to_image(self, vector, size=(32, 32)):
+        w, h = size
+        expected_size = 3 * h * w
+        if vector.size != expected_size:
+            raise ValueError(f"Expected vector of length {expected_size}, got {vector.size}")
+        img = vector.reshape((3, h, w)).transpose(1, 2, 0)
+        return img.astype(np.uint8)
+    
+    # def dec_to_image(self, vector, size=(32, 32)):
+    #     w, h = size
+    #     expected_size = 3 * h * w
+
+    #     # Torch tensor
+    #     if isinstance(vector, torch.Tensor):
+    #         length = vector.numel()   # đúng cho torch
+    #         print(f"[DEBUG] torch vector.numel() = {length}, expected = {expected_size}")
+    #         vector = vector.detach().cpu().numpy()
+
+    #     # Numpy array
+    #     elif isinstance(vector, np.ndarray):
+    #         length = vector.size      # đúng cho numpy
+    #         print(f"[DEBUG] numpy vector.size = {length}, expected = {expected_size}")
+
+    #     else:
+    #         raise TypeError(f"Unsupported type {type(vector)}")
+
+    #     if length != expected_size:
+    #         raise ValueError(f"Expected vector of length {expected_size}, got {length}")
+
+    #     # CHW + batch
+    #     img = vector.reshape((3, h, w))
+    #     img = torch.from_numpy(img).unsqueeze(0).float()
+    #     return img
 
 
     def forward_v2(self, input_image, snr_chan):

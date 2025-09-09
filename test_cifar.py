@@ -11,6 +11,8 @@ from utils.metric_utils import get_psnr, view_model_param
 
 from skimage import data
 from PIL import Image
+import matplotlib.pyplot as plt
+from load_lib import * 
 
 class Args:
     base_snr = 20  # Example SNR value
@@ -101,12 +103,20 @@ criterion = nn.MSELoss()
 rate = args.channel_number
 model.eval()
 snr_list = range(0,1,1)
+
+# Convert image to dec
+print("Images size:", images.size())
+print(images.min(), images.max())
+dec_tensor = image_to_binary(images, size=(32, 32))
+np.savetxt("dec_tensor.txt", dec_tensor, fmt="%d")
+
 for snr in snr_list:
     model.change_channel(channel_type=args.channel_type, snr=snr)
     #print(f"Chddddannel: {model.get_channel}")
     #recon_image = model.forward(images,8.8)
     #recon_image = model.forward_v2(images,8.8)
-    feature, mask = model.encode_and_save(images, 8.8)
+
+    feature, mask = model.encode_and_save(dec_tensor, 8.8)
     recon_image = model.channel_and_decode(feature, mask, images, 8.8)
     recon = image_normalization('denormalization')(recon_image)
     gt = image_normalization('denormalization')(images)
@@ -120,7 +130,7 @@ for snr in snr_list:
 recon_image = recon_image.clamp(0, 1).cpu().detach().squeeze(0).permute(1, 2, 0).numpy()
 orig_image = images.cpu().squeeze(0).permute(1, 2, 0).numpy()
 
-import matplotlib.pyplot as plt
+
 
 plt.figure(figsize=(8, 5))
 plt.plot(snr_list, psnr_values, marker='o', label="PSNR")

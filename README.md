@@ -87,7 +87,10 @@ g++ -O3 -Wall -std=c++17 -fPIC   $(python3 -m pybind11 --includes)   main.cpp -o
 
 ---
 
-## 8. Deactivate the Virtual Environment
+## 8. Open cv
+pip install opencv-python
+
+## 9. Deactivate the Virtual Environment
 ```bash
 deactivate
 ```
