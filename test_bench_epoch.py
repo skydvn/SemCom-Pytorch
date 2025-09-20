@@ -5,7 +5,7 @@ Project   :
 Author    : Nguyen Thi Hoai Linh
 Email     : 
 Date      : 2025-09-10 08:28:06
-Last Modified : 2025-09-10 08:54:35
+Last Modified : 2025-09-20 17:27:56
 Modified By   : Nguyen Thi Hoai Linh
 ----------------------------------------------------------------------------
 Description: 
@@ -110,72 +110,147 @@ np.savetxt("dec_tensor.txt", dec_tensor, fmt="%d")
 # -------------------------------
 
 # Load model from checkpoint
+# checkpoints = [
+#     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_21h19m33s_on_Sep_09_2025/epoch_4.pkl",
+#     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_21h09m39s_on_Sep_09_2025/epoch_9.pkl",
+#     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_21h27m23s_on_Sep_09_2025/epoch_14.pkl",
+#     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_20h23m39s_on_Sep_09_2025/epoch_19.pkl",
+#     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_20h41m29s_on_Sep_09_2025/epoch_29.pkl",
+#     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_19h40m58s_on_Sep_09_2025/epoch_49.pkl",
+#     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_15h45m22s_on_Aug_04_2025/epoch_199.pkl",
+# ]
 checkpoints = [
     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_21h19m33s_on_Sep_09_2025/epoch_4.pkl",
-    "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_21h09m39s_on_Sep_09_2025/epoch_9.pkl",
-    "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_21h27m23s_on_Sep_09_2025/epoch_14.pkl",
     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_20h23m39s_on_Sep_09_2025/epoch_19.pkl",
-    "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_20h41m29s_on_Sep_09_2025/epoch_29.pkl",
     "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_19h40m58s_on_Sep_09_2025/epoch_49.pkl",
-    "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_15h45m22s_on_Aug_04_2025/epoch_199.pkl",
+    "out/checkpoints/CIFAR10_0.16666666666666666_AWGN13_swinjscc_21h40m33s_on_Sep_09_2025/epoch_199.pkl",
 ]
+
+# label
+epoch_labels = [5, 20, 50, 200]
+
 # -------------------------------
 # Loop checkpoint 
 # -------------------------------
-snr_db = 0
-for ckpt_path in checkpoints:
-    # Initialize the model with only 3 arguments
-    model = SWINJSCC(args, 3, 10).to(device)   # 3 channels (RGB), 10 classes (CIFAR-10)
-    checkpoint = torch.load(ckpt_path, map_location=device)
+num_ckpt = len(checkpoints)
+cols = num_ckpt + 1   # 1 cột cho Original + n cột cho restore
+rows = 1              # chỉ cần 1 hàng
 
-    # Load state_dict into the model
-    if "model_state_dict" in checkpoint:
-        model.load_state_dict(checkpoint["model_state_dict"])
-    else:
-        model.load_state_dict(checkpoint, strict=False)  
 
-    for name, param in model.state_dict().items():
-        print(f"{name:40} {tuple(param.shape)}")
+# Flag_loss = 0 (plot figure); 1 (plot loss)
+Flag_loss = 0
+if Flag_loss: 
+    snr_list = list(range(0, 55, 5))   # [0, 5, 10, ..., 50]
+    plt.figure(figsize=(8, 5))
 
-    model.eval()
-    psnr_values = []
-    criterion = nn.MSELoss()
-    rate = args.channel_number
-    model.eval()
+    for idx, ckpt_path in enumerate(checkpoints):
+        # Initialize the model
+        model = SWINJSCC(args, 3, 10).to(device)
+        checkpoint = torch.load(ckpt_path, map_location=device)
 
-    model.change_channel(channel_type=args.channel_type, snr=snr_db)
-    feature, mask = model.encode_and_save(dec_tensor, snr_db)
-    recon_image = model.channel_and_decode(feature, mask, images, snr_db)
-    recon = image_normalization('denormalization')(recon_image)
-    gt = image_normalization('denormalization')(images)
-    loss = criterion(gt, recon) 
-    psnr = get_psnr(image = None, gt = None ,mse = loss)
-    
-    print(f"SNR: {snr_db} || Test Loss: {loss} || PSNR: {psnr}")
-    psnr_values.append(psnr.item())
+        if "model_state_dict" in checkpoint:
+            model.load_state_dict(checkpoint["model_state_dict"])
+        else:
+            model.load_state_dict(checkpoint, strict=False)  
 
-    # -------------------------------
-    # Save figure
-    # -------------------------------
+        model.eval()
+        criterion = nn.MSELoss()
+        rate = args.channel_number
 
-    recon_image = recon_image.clamp(0, 1).cpu().detach().squeeze(0).permute(1, 2, 0).numpy()
-    orig_image = images.cpu().squeeze(0).permute(1, 2, 0).numpy()
+        psnr_values = []
 
-    fig, axes = plt.subplots(1, 2, figsize=(6, 3))
-    axes[0].imshow(orig_image)
-    axes[0].set_title("Original")
-    axes[0].axis("off")
+        for snr_db in snr_list:
+            # Channel simulation
+            model.change_channel(channel_type=args.channel_type, snr=snr_db)
+            feature, mask = model.encode_and_save(dec_tensor, snr_db)
+            recon_image = model.channel_and_decode(feature, mask, images, snr_db)
 
-    axes[1].imshow(recon_image)
-    axes[1].set_title("Reconstruction")
-    axes[1].axis("off")
+            # Denormalize
+            recon = image_normalization('denormalization')(recon_image)
+            gt = image_normalization('denormalization')(images)
 
-    # Save 
-    ckpt_name = os.path.basename(ckpt_path).replace(".pkl", "")
-    save_name = f"reconstruction_{ckpt_name}_snr{snr_db}.png"
+            # Loss + PSNR
+            loss = criterion(gt, recon) 
+            psnr = get_psnr(image=None, gt=None, mse=loss)
 
+            print(f"[{os.path.basename(ckpt_path)}] SNR: {snr_db} || Loss: {loss:.4f} || PSNR: {psnr:.2f}")
+            psnr_values.append(psnr.item())
+
+        # Vẽ mỗi checkpoint là 1 đường
+        label = f"Epoch {epoch_labels[idx]}" if 'epoch_labels' in locals() else os.path.basename(ckpt_path)
+        plt.plot(snr_list, psnr_values, marker='o', label=label)
+
+    plt.xlabel("SNR (dB)")
+    plt.ylabel("PSNR (dB)")
+    plt.title("PSNR vs SNR per Checkpoint")
+    plt.grid(True)
+    plt.legend()
     plt.tight_layout()
-    plt.savefig(save_name, dpi=300)
+    plt.savefig("psnr_vs_snr_all.png", dpi=300)
     plt.close()
 
+else : 
 
+    list_snr_db = [5, 10, 30]
+    for snr_idx in range(len(list_snr_db)):
+        snr_db = list_snr_db[snr_idx]
+
+        fig, axes = plt.subplots(rows, cols, figsize=(cols*3, 3))
+        axes = axes.flatten() if rows*cols > 1 else [axes]
+        # Ảnh gốc
+        orig_np = images.cpu().squeeze(0).permute(1, 2, 0).numpy()
+        axes[0].imshow(orig_np)
+        axes[0].set_title("Original")
+        axes[0].axis("off")
+
+        for idx, ckpt_path in enumerate(checkpoints):
+            # Initialize the model with only 3 arguments
+            model = SWINJSCC(args, 3, 10).to(device)   # 3 channels (RGB), 10 classes (CIFAR-10)
+            checkpoint = torch.load(ckpt_path, map_location=device)
+
+            # Load state_dict into the model
+            if "model_state_dict" in checkpoint:
+                model.load_state_dict(checkpoint["model_state_dict"])
+            else:
+                model.load_state_dict(checkpoint, strict=False)  
+
+            for name, param in model.state_dict().items():
+                print(f"{name:40} {tuple(param.shape)}")
+
+            model.eval()
+            psnr_values = []
+            criterion = nn.MSELoss()
+            rate = args.channel_number
+            model.eval()
+
+            model.change_channel(channel_type=args.channel_type, snr=snr_db)
+            feature, mask = model.encode_and_save(dec_tensor, snr_db)
+            recon_image = model.channel_and_decode(feature, mask, images, snr_db)
+            recon = image_normalization('denormalization')(recon_image)
+            gt = image_normalization('denormalization')(images)
+            loss = criterion(gt, recon) 
+            psnr = get_psnr(image=None, gt=None, mse=loss)
+            
+            print(f"SNR: {snr_db} || Test Loss: {loss} || PSNR: {psnr}")
+            psnr_values.append(psnr.item())
+
+            # -------------------------------
+            # Save figure
+            # -------------------------------
+
+            recon_image = recon_image.clamp(0, 1).cpu().detach().squeeze(0).permute(1, 2, 0).numpy()
+            orig_image = images.cpu().squeeze(0).permute(1, 2, 0).numpy()
+
+            # Vẽ
+            axes[idx+1].imshow(recon_image)
+            ckpt_name = os.path.basename(ckpt_path).replace(".pkl", "")
+            # axes[idx+1].set_title(f"Restore\n{ckpt_name}")
+            axes[idx+1].set_title(f"Epoch {epoch_labels[idx]}")
+            axes[idx+1].axis("off")
+
+        plt.suptitle("SNR = " + str(snr_db) + " dB", fontsize=16, y=1.02)
+        plt.tight_layout()
+
+        save_name = f"all_reconstructions_snr{snr_db}dB.png"
+        plt.savefig(save_name, dpi=300, bbox_inches="tight")
+        plt.close()

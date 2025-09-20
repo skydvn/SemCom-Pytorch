@@ -272,7 +272,7 @@ class SWINJSCC(BaseModel):
         print(input_image.min(), input_image.max())
 
         B, _, H, W = input_image.shape
-        print("Channeadsfadsfalll is", self.get_channel())
+        # print("Channeadsfadsfalll is", self.get_channel())
 
         # Cập nhật resolution nếu cần
         if H != self.H or W != self.W:
@@ -283,9 +283,9 @@ class SWINJSCC(BaseModel):
 
         # Encoder
         feature, mask = self.encoder(input_image, snr_chan, self.channel_number)
-        print("Input size:", input_image.size())
-        print("Feature size:", feature.size())
-        print("Mask size:", mask.size())
+        # print("Input size:", input_image.size())
+        # print("Feature size:", feature.size())
+        # print("Mask size:", mask.size())
 
         # Lưu feature ra file txt
         np_array = feature.detach().numpy()
@@ -335,21 +335,21 @@ class SWINJSCC(BaseModel):
         # plt.tight_layout()
         # plt.savefig(f"reconstructed_snr{snr_chan}.png", dpi=300)
         # plt.close()
-        plt.figure(figsize=(10,4))
+        # plt.figure(figsize=(10,4))
 
-        plt.subplot(1,2,1)
-        plt.imshow(orig_image)
-        plt.title("Input")
-        plt.axis("off")
+        # plt.subplot(1,2,1)
+        # plt.imshow(orig_image)
+        # plt.title("Input")
+        # plt.axis("off")
 
-        plt.subplot(1,2,2)
-        plt.imshow(image_plot)
-        plt.title(f"Reconstructed (SNR={snr_chan} dB)")
-        plt.axis("off")
+        # plt.subplot(1,2,2)
+        # plt.imshow(image_plot)
+        # plt.title(f"Reconstructed (SNR={snr_chan} dB)")
+        # plt.axis("off")
 
-        plt.tight_layout()
-        plt.savefig(f"compare_input_recon_snr{snr_chan}.png", dpi=300)
-        plt.close()
+        # plt.tight_layout()
+        # plt.savefig(f"compare_input_recon_snr{snr_chan}.png", dpi=300)
+        # plt.close()
 
         return recon_image
 
